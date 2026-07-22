@@ -1,0 +1,14 @@
+numpy
+scipy
+pandas
+astropy
+sunpy[map]>=5.0
+drms>=0.7
+pyflct
+h5py
+pyyaml
+tqdm
+matplotlib
+
+[deepvel]
+tensorflow

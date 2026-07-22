@@ -69,8 +69,10 @@ def resolve_event(event: dict, jsoc_email: str,
             f"HARP {event['harpnum']} never within |lon| <= {lon_max} deg")
     first, last = np.flatnonzero(ok)[[0, -1]]
 
-    event.setdefault("t_start", str(keys.T_REC[first]))
-    event.setdefault("t_end", str(keys.T_REC[last]))
+    if event.get("t_start") is None:
+        event["t_start"] = str(keys.T_REC[first])
+    if event.get("t_end") is None:
+        event["t_end"] = str(keys.T_REC[last])
 
     # Patch reference: flux-weighted AR position at the record closest to
     # central meridian, so the im_patch stays centered on the spot group.

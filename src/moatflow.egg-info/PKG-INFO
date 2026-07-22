@@ -1,0 +1,18 @@
+Metadata-Version: 2.4
+Name: moatflow
+Version: 0.1.0
+Summary: Download and LCT pipeline for moat-flow onset around forming sunspot penumbrae (SDO/HMI)
+Requires-Python: >=3.10
+Requires-Dist: numpy
+Requires-Dist: scipy
+Requires-Dist: pandas
+Requires-Dist: astropy
+Requires-Dist: sunpy[map]>=5.0
+Requires-Dist: drms>=0.7
+Requires-Dist: pyflct
+Requires-Dist: h5py
+Requires-Dist: pyyaml
+Requires-Dist: tqdm
+Requires-Dist: matplotlib
+Provides-Extra: deepvel
+Requires-Dist: tensorflow; extra == "deepvel"
