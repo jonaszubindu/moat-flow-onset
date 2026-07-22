@@ -13,9 +13,12 @@ DEFAULT_SEGMENTS = ("continuum", "magnetogram", "bitmap", "Br")
 
 
 def jsoc_time(t: str) -> str:
-    """'2012-05-28T00:00:00' or SHARP T_REC -> JSOC query time string."""
-    t = t.replace("-", ".").replace("T", "_")
-    return t if t.endswith("_TAI") else t + "_TAI"
+    """ISO ('2012-05-28T00:00:00') or JSOC ('2012.05.28_00:00:00_TAI')
+    input -> JSOC query time string. Already-JSOC strings pass through
+    (naive .replace('T', '_') would mangle the 'TAI' suffix)."""
+    if t.endswith("_TAI"):
+        return t
+    return t.replace("-", ".").replace("T", "_") + "_TAI"
 
 
 def download_sharps(event: dict, jsoc_email: str, out_dir: Path,
