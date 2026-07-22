@@ -1,0 +1,26 @@
+# Event catalog: pores that develop penumbrae, observed by SDO/HMI.
+#
+# Minimal entry: id + noaa_ar (+ refs). scripts/resolve_event.py fills in
+# harpnum, t_start/t_end (disk passage within the longitude cut) and the
+# im_patch reference point (t_ref, lon_ref, lat_ref). Set t_start/t_end by
+# hand to trim to ~1 day before pore emergence .. ~1 day after penumbra
+# completion once the event has been inspected.
+#
+# Sources to mine for the remaining ~20-30 events:
+#   * Murabito et al. 2018, ApJ 855, 58 — Table 1: 12 beta-type ARs
+#     (2011-2012) with observed penumbra formation.  TODO: transcribe.
+#   * Murabito et al. 2019 review (arXiv:1901.05207) and refs therein.
+#   * SHARP metadata survey: emerging HARPs with USFLUX growth and
+#     |LON_FWT| <= 40 deg, vetted by quicklook movies.
+
+events:
+  - id: AR11490
+    noaa_ar: 11490
+    harpnum: null        # resolved automatically
+    t_start: null
+    t_end: null
+    refs:
+      - "Murabito et al. 2016, ApJ 825, 75 (arXiv:1604.05610)"
+    notes: >
+      Penumbra formation and Evershed-flow onset observed May 2012
+      (IBIS + HMI). Anchor event for validating the pipeline.

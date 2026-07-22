@@ -1,0 +1,20 @@
+# Copy to config.yaml (gitignored) and edit.
+
+# JSOC-registered e-mail (register at http://jsoc.stanford.edu/ajax/register_email.html)
+jsoc_email: jonas.zbinden@unibe.ch
+
+# Root for all downloaded/derived data.
+# Local development:
+data_root: ./data
+# Cluster deployment:
+# data_root: /sml/zbindenj/moatflow
+
+# 45 s patch export settings
+patch:
+  width_px: 512          # im_patch cutout size (HMI CCD pixels)
+  height_px: 512
+  cadence: 45s           # e.g. 90s to halve the volume
+  chunk_hours: 6         # split long ranges into one JSOC export request per chunk
+
+# Event selection
+max_abs_longitude_deg: 40.0

@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "moatflow"
+version = "0.1.0"
+description = "Download and LCT pipeline for moat-flow onset around forming sunspot penumbrae (SDO/HMI)"
+requires-python = ">=3.10"
+dependencies = [
+    "numpy",
+    "scipy",
+    "pandas",
+    "astropy",
+    "sunpy[map]>=5.0",
+    "drms>=0.7",
+    "pyflct",
+    "h5py",
+    "pyyaml",
+    "tqdm",
+    "matplotlib",
+]
+
+[project.optional-dependencies]
+deepvel = ["tensorflow"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
