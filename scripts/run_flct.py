@@ -11,7 +11,6 @@ from pathlib import Path
 
 import h5py
 import numpy as np
-from astropy.time import Time
 
 from moatflow.config import event_dir, load_config
 from moatflow.cubes import build_cube, load_cube
@@ -32,14 +31,17 @@ def main():
 
     cfg = load_config()
     out = event_dir(cfg, args.event_id)
-    cube_file = out / f"cube_{args.series}.h5"
+    from moatflow.download.patches45s import SERIES_SEGMENTS
+    segment = SERIES_SEGMENTS[args.series]
+    # same cube file the quicklook builds — reused if already present
+    cube_file = out / f"cube_{args.series}_{segment}.h5"
     if not cube_file.exists():
-        build_cube(out / args.series, cube_file)
+        build_cube(out / args.series, cube_file, pattern=f"*.{segment}.fits")
 
+    from moatflow.viz import parse_datetimes, parse_times
     cube, t_iso, _ = load_cube(cube_file)
-    t = Time([s.replace("_TAI", "").replace(".", "-").replace("_", "T")
-              for s in t_iso], scale="tai")
-    times_s = (t - t[0]).sec
+    times_s = parse_times(t_iso)
+    t0_isot = parse_datetimes(t_iso[:1])[0].isoformat()
 
     t_mid, vx, vy = flct_windowed(cube, np.asarray(times_s),
                                   window_s=args.window,
@@ -52,7 +54,7 @@ def main():
         h5["vx"] = vx
         h5["vy"] = vy
         h5.attrs.update({"window_s": args.window, "sigma_px": args.sigma,
-                         "pair_stride": args.stride, "t0_isot": t[0].isot})
+                         "pair_stride": args.stride, "t0_isot": t0_isot})
     print(f"Wrote {flow_file}: {len(t_mid)} flow maps")
 
 
