@@ -18,3 +18,10 @@ patch:
 
 # Event selection
 max_abs_longitude_deg: 40.0
+
+# Download window around the literature penumbra-formation interval
+# (events with t_penumbra_start/t_penumbra_end in the catalog):
+# pad generously *before* so the pre-penumbra moat baseline is covered.
+window:
+  pad_before_h: 36
+  pad_after_h: 24

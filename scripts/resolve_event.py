@@ -20,10 +20,13 @@ def main():
     cfg = load_config()
     events = load_events()
     ids = list(events) if args.all else args.event_ids
+    win = cfg.get("window", {})
     for eid in ids:
         print(f"Resolving {eid} ...")
         events[eid] = resolve_event(events[eid], cfg["jsoc_email"],
-                                    lon_max=cfg["max_abs_longitude_deg"])
+                                    lon_max=cfg["max_abs_longitude_deg"],
+                                    pad_before_h=win.get("pad_before_h", 36),
+                                    pad_after_h=win.get("pad_after_h", 24))
         print(f"  HARP {events[eid]['harpnum']}: "
               f"{events[eid]['t_start']} - {events[eid]['t_end']}")
     save_events(events)

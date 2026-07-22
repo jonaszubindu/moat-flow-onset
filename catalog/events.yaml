@@ -1,15 +1,157 @@
 events:
+- id: AR11150
+  noaa_ar: 11150
+  harpnum: 355
+  t_penumbra_start: 2011-01-30T18:00
+  t_penumbra_end: 2011-02-02T17:48
+  t_start: 2011.01.30_21:12:00_TAI
+  t_end: 2011.02.03_17:48:00_TAI
+  refs: &id001
+  - Murabito et al. 2018, ApJ 855, 58 (Table 1)
+  notes: "Position (-610, -280) arcsec \u2014 near the |lon|=40 deg cut."
+  t_ref: 2011.02.02_20:00:00_TAI
+  lon_ref: 0.012414
+  lat_ref: -20.916292
+- id: AR11184
+  noaa_ar: 11184
+  harpnum: 466
+  t_penumbra_start: 2011-04-03T06:00
+  t_penumbra_end: 2011-04-06T05:36
+  t_start: 2011.04.01_18:00:00_TAI
+  t_end: 2011.04.07_05:36:00_TAI
+  refs: *id001
+  notes: Position (-150, 375) arcsec.
+  t_ref: 2011.04.04_07:12:00_TAI
+  lon_ref: 0.008754
+  lat_ref: 14.369021
+- id: AR11210
+  noaa_ar: 11210
+  harpnum: 580
+  t_penumbra_start: 2011-05-09T15:00
+  t_penumbra_end: 2011-05-11T05:24
+  t_start: 2011.05.08_03:00:00_TAI
+  t_end: 2011.05.12_05:24:00_TAI
+  refs: *id001
+  notes: Position (-200, 380) arcsec.
+  t_ref: 2011.05.10_20:24:00_TAI
+  lon_ref: 0.030665
+  lat_ref: 17.237038
+- id: AR11242
+  noaa_ar: 11242
+  harpnum: 686
+  t_penumbra_start: 2011-06-29T06:00
+  t_penumbra_end: 2011-07-01T05:48
+  t_start: 2011.06.28_02:24:00_TAI
+  t_end: 2011.07.01_17:48:00_TAI
+  refs: *id001
+  notes: Position (100, 240) arcsec.
+  t_ref: 2011.06.28_19:48:00_TAI
+  lon_ref: 0.007518
+  lat_ref: 17.257975
+- id: AR11243
+  noaa_ar: 11243
+  harpnum: 685
+  t_penumbra_start: 2012-12-09T00:00
+  t_penumbra_end: 2012-12-10T00:00
+  t_start: 2011.06.30_17:00:00_TAI
+  t_end: 2011.07.06_15:24:00_TAI
+  refs: *id001
+  notes: 'SUSPECT extraction: table gave the same Dec 2012 dates as AR 11630, but
+    NOAA 11243 crossed the disk mid-2011. The resolver will warn if the interval misses
+    the HARP disk passage. Check the PDF.
+
+    '
+  t_ref: 2011.07.03_15:00:00_TAI
+  lon_ref: -0.014207
+  lat_ref: 17.19795
+- id: AR11466
+  noaa_ar: 11466
+  harpnum: 1603
+  t_penumbra_start: 2012-04-22T03:00
+  t_penumbra_end: 2012-04-22T23:00
+  t_start: 2012.04.22_05:12:00_TAI
+  t_end: 2012.04.23_23:00:00_TAI
+  refs: *id001
+  notes: "Position (-600, 270) arcsec \u2014 near the |lon|=40 deg cut."
+  t_ref: 2012.04.25_10:36:00_TAI
+  lon_ref: 0.034725
+  lat_ref: 11.437936
 - id: AR11490
   noaa_ar: 11490
   harpnum: 1701
-  t_start: 2012.05.26_10:24:00_TAI
-  t_end: 2012.06.01_09:00:00_TAI
+  t_penumbra_start: 2012-05-28T14:00
+  t_penumbra_end: 2012-05-29T21:00
+  t_start: 2012.05.27_02:00:00_TAI
+  t_end: 2012.05.30_21:00:00_TAI
   refs:
   - Murabito et al. 2016, ApJ 825, 75 (arXiv:1604.05610)
-  notes: 'Penumbra formation and Evershed-flow onset observed May 2012 (IBIS + HMI).
-    Anchor event for validating the pipeline.
+  - Murabito et al. 2018, ApJ 855, 58 (Table 1)
+  notes: 'Position (-180, -200) arcsec. Penumbra formation and Evershed-flow onset
+    observed May 2012 (IBIS + HMI). Anchor event for validating the pipeline.
 
     '
   t_ref: 2012.05.29_08:24:00_TAI
   lon_ref: -0.002949
   lat_ref: -13.077822
+- id: AR11512
+  noaa_ar: 11512
+  harpnum: 1795
+  t_penumbra_start: 2012-06-25T01:00
+  t_penumbra_end: 2012-06-28T00:00
+  t_start: 2012.06.25_14:00:00_TAI
+  t_end: 2012.06.29_00:00:00_TAI
+  refs: *id001
+  notes: "Position (750, -280) arcsec \u2014 beyond the |lon|=40 deg LCT cut at the\
+    \ tabulated time; expect clipping/warning. May need to be dropped or kept with\
+    \ a relaxed longitude cut.\n"
+  t_ref: 2012.06.28_18:24:00_TAI
+  lon_ref: 0.120924
+  lat_ref: -16.234762
+- id: AR11554
+  noaa_ar: 11554
+  harpnum: 1962
+  t_penumbra_start: 2012-08-24T06:00
+  t_penumbra_end: 2012-08-25T21:00
+  t_start: 2012.08.22_23:36:00_TAI
+  t_end: 2012.08.26_21:00:00_TAI
+  refs: *id001
+  notes: Position (-380, 150) arcsec.
+  t_ref: 2012.08.25_22:48:00_TAI
+  lon_ref: -0.016225
+  lat_ref: 16.138474
+- id: AR11610
+  noaa_ar: 11610
+  harpnum: 2181
+  t_penumbra_start: 2012-11-09T15:00
+  t_penumbra_end: 2012-11-11T06:00
+  t_start: 2012.11.09_06:48:00_TAI
+  t_end: 2012.11.12_06:00:00_TAI
+  refs: *id001
+  notes: Position (-520, -440) arcsec.
+  t_ref: 2012.11.12_08:12:00_TAI
+  lon_ref: 0.046253
+  lat_ref: -23.097099
+- id: AR11630
+  noaa_ar: 11630
+  harpnum: 2270
+  t_penumbra_start: 2012-12-09T00:00
+  t_penumbra_end: 2012-12-10T00:00
+  t_start: 2012.12.07_12:00:00_TAI
+  t_end: 2012.12.11_00:00:00_TAI
+  refs: *id001
+  notes: Position (-250, 310) arcsec.
+  t_ref: 2012.12.10_05:12:00_TAI
+  lon_ref: 0.019831
+  lat_ref: 18.50407
+- id: AR11640
+  noaa_ar: 11640
+  harpnum: 2337
+  t_penumbra_start: 2012-12-30T10:00
+  t_penumbra_end: 2013-01-03T10:00
+  t_start: 2012.12.29_14:00:00_TAI
+  t_end: 2013.01.04_10:00:00_TAI
+  refs: *id001
+  notes: Position (-410, 490) arcsec.
+  t_ref: 2013.01.01_09:48:00_TAI
+  lon_ref: -0.044927
+  lat_ref: 27.221367
