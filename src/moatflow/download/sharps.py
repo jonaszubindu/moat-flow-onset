@@ -9,7 +9,7 @@ from pathlib import Path
 
 import drms
 
-DEFAULT_SEGMENTS = ("continuum", "magnetogram", "bitmap", "Br")
+DEFAULT_SEGMENTS = ("continuum", "magnetogram", "Dopplergram", "bitmap", "Br")
 
 
 def jsoc_time(t: str) -> str:
@@ -34,9 +34,11 @@ def download_sharps(event: dict, jsoc_email: str, out_dir: Path,
 
     out_dir.mkdir(parents=True, exist_ok=True)
     expected = [out_dir / f for f in req.urls["filename"]]
-    if all(f.exists() for f in expected):
+    missing = [i for i, f in enumerate(expected) if not f.exists()]
+    if not missing:
         print("All SHARP files already on disk, skipping download.")
         return [str(f) for f in expected]
-
-    result = req.download(str(out_dir))
-    return list(result["download"])
+    print(f"Downloading {len(missing)} of {len(expected)} files "
+          "(rest already on disk).")
+    req.download(str(out_dir), index=missing)
+    return [str(f) for f in expected]

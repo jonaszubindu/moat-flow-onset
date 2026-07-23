@@ -10,6 +10,7 @@ requests stay small enough for the JSOC processing queue, and chunks whose
 files already exist are skipped, making the download resumable.
 """
 
+import time
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -20,6 +21,7 @@ from .sharps import jsoc_time
 SERIES_SEGMENTS = {
     "hmi.Ic_45s": "continuum",
     "hmi.M_45s": "magnetogram",
+    "hmi.V_45s": "Dopplergram",
 }
 
 
@@ -39,7 +41,8 @@ def _chunks(t0: datetime, t1: datetime, hours: float):
 def download_patches(event: dict, jsoc_email: str, out_dir: Path,
                      series: str = "hmi.Ic_45s",
                      width_px: int = 512, height_px: int = 512,
-                     cadence: str = "45s", chunk_hours: float = 6.0) -> list[str]:
+                     cadence: str = "45s", chunk_hours: float = 6.0,
+                     retries: int = 3, retry_wait_s: float = 60.0) -> list[str]:
     """Export im_patch tracked cutouts for one event and one 45 s series."""
     if series not in SERIES_SEGMENTS:
         raise ValueError(f"series must be one of {list(SERIES_SEGMENTS)}")
@@ -74,17 +77,35 @@ def download_patches(event: dict, jsoc_email: str, out_dir: Path,
 
     t0, t1 = _parse(event["t_start"]), _parse(event["t_end"])
     downloaded: list[str] = []
+    failed: list[str] = []
     for c0, c1 in _chunks(t0, t1, chunk_hours):
         qstr = (f"{series}[{jsoc_time(c0.isoformat())}-"
                 f"{jsoc_time(c1.isoformat())}@{cadence}]{{{segment}}}")
         marker = out_dir / f".done_{c0:%Y%m%dT%H%M}"
         if marker.exists():
             continue
-        print(f"Exporting {qstr}")
-        req = client.export(qstr, method="url", protocol="fits",
-                            process=process)
-        req.wait()
-        result = req.download(str(out_dir))
-        downloaded += list(result["download"])
-        marker.touch()
+        # Per-chunk retries so a transient network drop costs one attempt,
+        # not the whole run. A re-downloaded chunk overwrites any partial
+        # files from the failed attempt.
+        for attempt in range(1, retries + 1):
+            try:
+                print(f"Exporting {qstr}" +
+                      (f" (attempt {attempt})" if attempt > 1 else ""))
+                req = client.export(qstr, method="url", protocol="fits",
+                                    process=process)
+                req.wait()
+                result = req.download(str(out_dir))
+                downloaded += list(result["download"])
+                marker.touch()
+                break
+            except Exception as e:
+                print(f"  chunk {c0:%Y-%m-%dT%H:%M} attempt {attempt} "
+                      f"failed: {e}")
+                if attempt == retries:
+                    failed.append(f"{c0:%Y-%m-%dT%H:%M}")
+                else:
+                    time.sleep(retry_wait_s)
+    if failed:
+        print(f"{len(failed)} chunk(s) failed after {retries} attempts: "
+              f"{failed} — re-run the same command to retry them.")
     return downloaded
