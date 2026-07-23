@@ -47,11 +47,17 @@ def download_patches(event: dict, jsoc_email: str, out_dir: Path,
 
     process = {
         "im_patch": {
-            # Reference time & Stonyhurst position from resolve_event();
-            # t=1 enables tracking of the patch with solar rotation.
+            # Reference time & Stonyhurst position from resolve_event().
+            # 't' is JSOC's NoTrack flag: t=0 tracks the patch with solar
+            # rotation (what we want); t=1 keeps it fixed on the sky and
+            # the AR drifts through the box at ~13 px/h.
+            # 'r' registers sub-pixel: without it the tracking advances in
+            # discrete ~1 px window jumps — a sawtooth that puts multi-km/s
+            # artifacts into pairwise LCT. Verified on AR11490: r=1 leaves
+            # frame-to-frame steps of <0.03 px.
             "t_ref": _parse(event["t_ref"]).strftime("%Y.%m.%d_%H:%M:%S_TAI"),
-            "t": 1,
-            "r": 0,
+            "t": 0,
+            "r": 1,
             "c": 0,
             "locunits": "stony",
             "boxunits": "pixels",
