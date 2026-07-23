@@ -21,6 +21,8 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("event_id")
     ap.add_argument("--series", default="hmi.Ic_45s")
+    ap.add_argument("--segment", default=None,
+                    help="segment (needed for sharp_cea_720s, e.g. continuum)")
     ap.add_argument("--window", type=float, default=3600.0,
                     help="averaging window [s]")
     ap.add_argument("--sigma", type=float, default=5.0,
@@ -32,7 +34,9 @@ def main():
     cfg = load_config()
     out = event_dir(cfg, args.event_id)
     from moatflow.download.patches45s import SERIES_SEGMENTS
-    segment = SERIES_SEGMENTS[args.series]
+    segment = args.segment or SERIES_SEGMENTS.get(args.series)
+    if segment is None:
+        raise SystemExit("--segment is required for this series")
     # same cube file the quicklook builds — reused if already present
     cube_file = out / f"cube_{args.series}_{segment}.h5"
     if not cube_file.exists():
@@ -48,7 +52,7 @@ def main():
                                   pair_stride=args.stride,
                                   sigma_px=args.sigma)
 
-    flow_file = out / f"flct_{args.series}_w{int(args.window)}s.h5"
+    flow_file = out / f"flct_{args.series}_{segment}_w{int(args.window)}s.h5"
     with h5py.File(flow_file, "w") as h5:
         h5["t_mid_s"] = t_mid
         h5["vx"] = vx

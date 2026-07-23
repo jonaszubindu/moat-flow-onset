@@ -20,17 +20,23 @@ HMI_PIXEL_KM = 362.0  # 0.504 arcsec at disk center
 
 def flct_pair(im1: np.ndarray, im2: np.ndarray, dt_s: float,
               sigma_px: float = 5.0, pixel_km: float = HMI_PIXEL_KM,
-              kr: float | None = 0.5):
+              kr: float | None = 0.5, thresh: float | None = None):
     """Velocity maps (vx, vy in km/s, plus mask) between two frames.
 
     kr applies FLCT's low-pass filter (fraction of Nyquist) — recommended
     for noisy magnetograms; set kr=None to disable.
+    thresh skips pixels where the mean |image| is below it (image units,
+    e.g. Gauss) — essential for magnetograms, where sparse MMFs would
+    otherwise be averaged away against noise pixels that FLCT reports as
+    zero velocity. Skipped pixels return vm=0; mask them before averaging.
     """
     if pyflct is None:
         raise ImportError("pyflct is required for FLCT tracking") from _import_error
     kwargs = {} if kr is None else {"kr": kr}
+    if thresh is not None:
+        kwargs["thresh"] = thresh
     vx, vy, vm = pyflct.flct(im1.astype("f8"), im2.astype("f8"),
-                             dt_s, pixel_km, sigma_px, **kwargs)
+                             dt_s, pixel_km, sigma_px, quiet=True, **kwargs)
     return vx, vy, vm
 
 
