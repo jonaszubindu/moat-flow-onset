@@ -37,15 +37,20 @@ def build_cube(fits_dir: Path, out_file: Path,
         t_obs = h5.create_dataset("t_obs", shape=(len(files),),
                                   dtype=h5py.string_dtype())
         for i, f in enumerate(files):
-            with fits.open(f) as hdul:
-                hdu = _first_image_hdu(hdul)
-                if hdu.data.shape != shape:
-                    raise ValueError(
-                        f"{f}: shape {hdu.data.shape} != {shape} — "
-                        "frame not tracked/cropped consistently?")
-                data[i] = hdu.data.astype("f4")
-                t = hdu.header.get("T_OBS") or hdu.header.get("DATE-OBS")
-                t_obs[i] = t
+            # surface the offending file — truncated FITS from interrupted
+            # downloads otherwise fail deep inside astropy
+            try:
+                with fits.open(f) as hdul:
+                    hdu = _first_image_hdu(hdul)
+                    if hdu.data.shape != shape:
+                        raise ValueError(
+                            f"shape {hdu.data.shape} != {shape} — "
+                            "frame not tracked/cropped consistently?")
+                    data[i] = hdu.data.astype("f4")
+                    t = hdu.header.get("T_OBS") or hdu.header.get("DATE-OBS")
+                    t_obs[i] = t
+            except Exception as e:
+                raise RuntimeError(f"unreadable FITS {f}: {e}") from e
         for k, v in header.items():
             if k and not isinstance(v, fits.header._HeaderCommentaryCards):
                 try:
