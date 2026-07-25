@@ -95,7 +95,14 @@ def download_patches(event: dict, jsoc_email: str, out_dir: Path,
                                     process=process)
                 req.wait()
                 result = req.download(str(out_dir))
-                downloaded += list(result["download"])
+                got = [f for f in result["download"] if f is not None]
+                # only mark complete if every exported record arrived —
+                # a sleep/network cut can end download() with a partial
+                # file list and no exception
+                if len(got) < len(req.urls):
+                    raise RuntimeError(
+                        f"only {len(got)}/{len(req.urls)} files downloaded")
+                downloaded += got
                 marker.touch()
                 break
             except Exception as e:
