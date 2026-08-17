@@ -52,7 +52,8 @@ def main():
                                   pair_stride=args.stride,
                                   sigma_px=args.sigma)
 
-    flow_file = out / f"flct_{args.series}_{segment}_w{int(args.window)}s.h5"
+    flow_file = out / (f"flct_{args.series}_{segment}_w{int(args.window)}s"
+                       f"_s{args.sigma:g}px_k{args.stride}.h5")
     with h5py.File(flow_file, "w") as h5:
         h5["t_mid_s"] = t_mid
         h5["vx"] = vx
