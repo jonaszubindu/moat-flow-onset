@@ -51,10 +51,14 @@ Variants (all on the 45 s continuum cube; ~2 h CPU each, running):
 - sigma=3 px / sigma=8 px, window=1 h
 - window=2 h at sigma=5 px
 
-When done, the comparison overlay (moat outflow curve per variant) shows
-whether the **onset time** moves with the parameters. Accept if the
-spread is well under the penumbra-formation duration (~1 d); otherwise
-we discuss before the batch run.
+**Result** (`data/AR11490/quicklook/flct_sensitivity_overlay.png`): the
+four curves are nearly indistinguishable. Provisional onset (crossing
+0.15 km/s for 3 consecutive windows): 43.5-45.5 h across variants —
+**+-1 h spread vs a ~31 h formation interval**, plateau 0.32-0.35 km/s.
+The moat-onset measurement is robust to the FLCT parameters; baseline
+sigma=5 px / 1 h stands unless you object. Bonus physics in the curves:
+a weak converging (negative) flow at t~12-20 h during coalescence,
+before the outflow develops.
 
 Also to bless:
 - [ ] segmentation thresholds 0.55 / 0.90 I_qs (cross-check umbra+penumbra
