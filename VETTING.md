@@ -25,20 +25,24 @@ of `events.yaml` (trim = set t_start/t_end by hand):
 3. Enough pre-formation baseline inside the |lon| <= 40 deg window.
 4. No disqualifiers (immediate decay, merger with another AR, ...).
 
-| Event  | Known flags before watching                          | Verdict |
-|--------|------------------------------------------------------|---------|
-| AR11150| near lon cut (-610" position)                        |         |
-| AR11184|                                                      |         |
-| AR11210|                                                      |         |
-| AR11242|                                                      |         |
-| AR11243| dates wrong (A); window = full passage               |         |
-| AR11466| resolved window only ~1.8 d — baseline may be short  |         |
-| AR11490| ANCHOR — done, keep (tracked from t~14 h)            | keep    |
-| AR11512| starts clipped by lon cut (was at 750" at obs time)  |         |
-| AR11554|                                                      |         |
-| AR11610|                                                      |         |
-| AR11630|                                                      |         |
-| AR11640| lat 27 deg — foreshortening in y worth a look        |         |
+All SHARP quicklooks generated 2026-08-17; drift checks pass for every
+event (worst 0.094 km/s / 6 h, AR11554). Durations below are the
+resolved windows as downloaded.
+
+| Event  | Window | Known flags before watching                          | Verdict |
+|--------|--------|------------------------------------------------------|---------|
+| AR11150|  93 h  | near lon cut (-610" position)                        |         |
+| AR11184| 131 h  |                                                      |         |
+| AR11210|  98 h  |                                                      |         |
+| AR11242|  87 h  |                                                      |         |
+| AR11243| 142 h  | dates wrong (A); window = full passage               |         |
+| AR11466|  41 h  | SHORT — baseline likely insufficient                 |         |
+| AR11490|  91 h  | ANCHOR — done, keep (tracked from t~14 h)            | keep    |
+| AR11512|  82 h  | starts clipped by lon cut (was at 750" at obs time)  |         |
+| AR11554|  93 h  | largest (still OK) drift — glance at drift plot      |         |
+| AR11610|  71 h  |                                                      |         |
+| AR11630|  84 h  |                                                      |         |
+| AR11640| 140 h  | lat 27 deg — foreshortening in y worth a look        |         |
 
 ## C. Method parameters to bless (AR11490 sensitivity sweep)
 
