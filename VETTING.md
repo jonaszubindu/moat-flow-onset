@@ -31,7 +31,7 @@ resolved windows as downloaded.
 
 | Event  | Window | Known flags before watching                          | Verdict |
 |--------|--------|------------------------------------------------------|---------|
-| AR11150|  93 h  | near lon cut (-610" position)                        |         |
+| AR11150|  93 h  | window starts 3 h AFTER lit. formation start — no pre-formation baseline | skip (onset) |
 | AR11184| 131 h  |                                                      |         |
 | AR11210|  98 h  |                                                      |         |
 | AR11242|  87 h  |                                                      |         |
