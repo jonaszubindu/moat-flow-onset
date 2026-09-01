@@ -29,6 +29,9 @@ def main():
                     help="FLCT Gaussian window [px] (~1.8 Mm at 5 px)")
     ap.add_argument("--stride", type=int, default=1,
                     help="frame separation of FLCT pairs")
+    ap.add_argument("--thresh", type=float, default=None,
+                    help="skip pixels below this |signal| (e.g. 30 for "
+                         "magnetograms, Gauss); masked averaging")
     args = ap.parse_args()
 
     cfg = load_config()
@@ -50,7 +53,8 @@ def main():
     t_mid, vx, vy = flct_windowed(cube, np.asarray(times_s),
                                   window_s=args.window,
                                   pair_stride=args.stride,
-                                  sigma_px=args.sigma)
+                                  sigma_px=args.sigma,
+                                  thresh=args.thresh)
 
     flow_file = out / (f"flct_{args.series}_{segment}_w{int(args.window)}s"
                        f"_s{args.sigma:g}px_k{args.stride}.h5")

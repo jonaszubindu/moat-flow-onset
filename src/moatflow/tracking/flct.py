@@ -42,7 +42,8 @@ def flct_pair(im1: np.ndarray, im2: np.ndarray, dt_s: float,
 
 def flct_windowed(cube, times_s: np.ndarray, window_s: float = 3600.0,
                   pair_stride: int = 1, sigma_px: float = 5.0,
-                  pixel_km: float = HMI_PIXEL_KM, kr: float | None = 0.5):
+                  pixel_km: float = HMI_PIXEL_KM, kr: float | None = 0.5,
+                  thresh: float | None = None):
     """Time-averaged flow maps over consecutive windows.
 
     Parameters
@@ -67,14 +68,25 @@ def flct_windowed(cube, times_s: np.ndarray, window_s: float = 3600.0,
                  if i + pair_stride < nt and times_s[i + pair_stride] < e0 + window_s]
         if not pairs:
             continue
-        acc_x = acc_y = None
+        acc_x = acc_y = cnt = None
         for i, j in pairs:
             dt = float(times_s[j] - times_s[i])
-            vx, vy, _ = flct_pair(cube[i], cube[j], dt, sigma_px, pixel_km, kr)
-            acc_x = vx if acc_x is None else acc_x + vx
-            acc_y = vy if acc_y is None else acc_y + vy
+            vx, vy, vm = flct_pair(cube[i], cube[j], dt, sigma_px, pixel_km,
+                                   kr, thresh)
+            # with thresh, only pixels FLCT actually computed (vm>0) enter
+            # the average — sparse MMFs would otherwise be diluted by the
+            # zero velocities FLCT reports for skipped noise pixels
+            good = (vm > 0) if thresh is not None else np.ones(vx.shape, bool)
+            if acc_x is None:
+                acc_x = np.zeros(vx.shape)
+                acc_y = np.zeros(vx.shape)
+                cnt = np.zeros(vx.shape)
+            acc_x[good] += vx[good]
+            acc_y[good] += vy[good]
+            cnt[good] += 1
         t_mid.append(e0 + window_s / 2)
-        vx_out.append(acc_x / len(pairs))
-        vy_out.append(acc_y / len(pairs))
+        with np.errstate(invalid="ignore"):
+            vx_out.append(np.where(cnt > 0, acc_x / np.maximum(cnt, 1), np.nan))
+            vy_out.append(np.where(cnt > 0, acc_y / np.maximum(cnt, 1), np.nan))
 
     return np.array(t_mid), np.array(vx_out), np.array(vy_out)
