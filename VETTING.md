@@ -73,3 +73,13 @@ Also to bless:
   growth, lon window).
 - Cluster deployment for the batch 45 s downloads (~10-15 GB/event).
 - Onset-time definitions (threshold + persistence) once C is settled.
+
+## E. Jurcak criterion test (added 2026-09-01)
+
+Colleagues dispute the Jurcak criterion (constant vertical field at the
+umbral boundary). Our sample can test it empirically on the side: SHARP
+`Br` is already in the download set, and the tracked umbra masks give
+the boundary per epoch — compute B_vert along the umbral boundary
+through each formation sequence and check constancy/threshold behavior.
+Cheap addition to the batch run; do NOT build the penumbra-onset
+definition on it (use area-threshold + persistence instead).
