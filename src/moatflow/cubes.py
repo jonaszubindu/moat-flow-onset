@@ -10,6 +10,7 @@ cluster filesystem; the cubes are what tracking and analysis read.
 """
 
 import glob
+import os
 from pathlib import Path
 
 import h5py
