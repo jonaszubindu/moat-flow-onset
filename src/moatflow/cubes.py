@@ -46,11 +46,21 @@ def jsoc_bad_trecs(series: str, files: list, email: str) -> set[str]:
     t0, t1 = trecs[0], trecs[-1]
     fmt = lambda d: (f"{d[0:4]}.{d[4:6]}.{d[6:8]}_"
                      f"{d[8:10]}:{d[10:12]}:{d[12:14]}_TAI")
+    # convert_numeric=False: drms otherwise turns the hex QUALITY strings
+    # into NaN. Only the severe top-nibble flags (0xF0000000: missing /
+    # unusable image, eclipse, calibration) disqualify a record — many
+    # good 45 s records carry benign informational bits like 0x00010000.
     k = drms.Client(email=email).query(
-        f"{series}[{fmt(t0)}-{fmt(t1)}@45s]", key="T_REC, QUALITY")
-    bad = {_trec_digits(t) for t, q in zip(k.T_REC, k.QUALITY.astype(str))
-           if q not in ("0x00000000", "0")}
-    return bad
+        f"{series}[{fmt(t0)}-{fmt(t1)}@45s]", key="T_REC, QUALITY",
+        convert_numeric=False)
+
+    def severe(q: str) -> bool:
+        q = str(q).strip()
+        try:
+            return bool(int(q, 16) & 0xF0000000)
+        except ValueError:
+            return True     # MISSING / unparsable -> treat as bad
+    return {_trec_digits(t) for t, q in zip(k.T_REC, k.QUALITY) if severe(q)}
 
 
 def build_cube(fits_dir: Path, out_file: Path,
