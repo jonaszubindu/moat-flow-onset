@@ -41,9 +41,9 @@ def main():
     if segment is None:
         raise SystemExit("--segment is required for this series")
     # same cube file the quicklook builds — reused if already present
-    cube_file = out / f"cube_{args.series}_{segment}.h5"
-    if not cube_file.exists():
-        build_cube(out / args.series, cube_file, pattern=f"*.{segment}.fits")
+    from moatflow.cubes import build_event_cube
+    cube_file = build_event_cube(out, args.series, segment,
+                                 email=cfg.get("jsoc_email"))
 
     from moatflow.viz import parse_datetimes, parse_times
     cube, t_iso, _ = load_cube(cube_file)
