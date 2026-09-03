@@ -10,6 +10,7 @@ requests stay small enough for the JSOC processing queue, and chunks whose
 files already exist are skipped, making the download resumable.
 """
 
+import re
 import time
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -36,6 +37,28 @@ def _chunks(t0: datetime, t1: datetime, hours: float):
     while t < t1:
         yield t, min(t + step, t1)
         t += step
+
+
+def _clear_chunk(out_dir: Path, c0: datetime, c1: datetime) -> int:
+    """Delete files (and .fits.N siblings) whose T_REC falls in [c0, c1).
+
+    Only ever called for a chunk with no completion marker, i.e. one
+    whose download was interrupted — completed chunks are skipped before
+    this point, so finished data is never touched.
+    """
+    removed = 0
+    for f in list(out_dir.glob("*.fits")) + list(out_dir.glob("*.fits.*")):
+        m = re.search(r"(\d{8}_\d{6})_TAI", f.name)
+        if not m:
+            continue
+        t = datetime.strptime(m.group(1), "%Y%m%d_%H%M%S")
+        if c0 <= t < c1:
+            f.unlink()
+            removed += 1
+    if removed:
+        print(f"  cleared {removed} partial file(s) from the interrupted "
+              f"chunk {c0:%Y-%m-%dT%H:%M}")
+    return removed
 
 
 def download_patches(event: dict, jsoc_email: str, out_dir: Path,
@@ -84,9 +107,13 @@ def download_patches(event: dict, jsoc_email: str, out_dir: Path,
         marker = out_dir / f".done_{c0:%Y%m%dT%H%M}"
         if marker.exists():
             continue
+        # A chunk without a marker was interrupted mid-download; clear its
+        # leftovers first. drms NEVER overwrites — a redo would otherwise
+        # land as *.fits.1 beside the truncated original, and the original
+        # (bad) file is the one later globs pick up.
+        _clear_chunk(out_dir, c0, c1)
         # Per-chunk retries so a transient network drop costs one attempt,
-        # not the whole run. A re-downloaded chunk overwrites any partial
-        # files from the failed attempt.
+        # not the whole run.
         for attempt in range(1, retries + 1):
             try:
                 print(f"Exporting {qstr}" +
