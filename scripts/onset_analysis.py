@@ -69,7 +69,35 @@ def main():
     out = event_dir(cfg, args.event_id)
     event = load_events()[args.event_id]
 
-    cube, t_iso, _ = load_cube(out / "cube_hmi.Ic_45s_continuum.h5")
+    cube_file = out / "cube_hmi.Ic_45s_continuum.h5"
+    flow_file = out / "flct_hmi.Ic_45s_continuum_w3600s_s5px_k1.h5"
+    if not cube_file.exists() or not flow_file.exists():
+        raw = out / "hmi.Ic_45s"
+        n_fits = len(list(raw.glob("*.fits"))) if raw.is_dir() else 0
+        msg = [f"{args.event_id}: cannot run the onset analysis yet."]
+        if n_fits == 0 and not cube_file.exists():
+            msg += [
+                "  No 45 s continuum data (only the SHARP vetting material?).",
+                f"  1) python scripts/download_event.py {args.event_id} "
+                "--patches --series hmi.Ic_45s",
+                f"  2) python scripts/quicklook.py {args.event_id} "
+                "--series hmi.Ic_45s        # builds the cube + vets drift",
+                f"  3) python scripts/run_flct.py {args.event_id} "
+                "--series hmi.Ic_45s --window 3600 --sigma 5",
+            ]
+        elif not cube_file.exists():
+            msg += [f"  {n_fits} FITS on disk but no cube yet:",
+                    f"  python scripts/quicklook.py {args.event_id} "
+                    "--series hmi.Ic_45s"]
+        else:
+            msg += ["  Cube exists but no flow maps yet:",
+                    f"  python scripts/run_flct.py {args.event_id} "
+                    "--series hmi.Ic_45s --window 3600 --sigma 5"]
+        msg += ["  (optional, for the MMF tracer: same steps with "
+                "--series hmi.M_45s, FLCT with --thresh 30)"]
+        raise SystemExit("\n".join(msg))
+
+    cube, t_iso, _ = load_cube(cube_file)
     times_s = parse_times(t_iso)
     t0 = parse_datetimes(t_iso[:1])[0]
 
@@ -81,7 +109,7 @@ def main():
 
     pf0, pf1 = lit_h("t_penumbra_start"), lit_h("t_penumbra_end")
 
-    with h5py.File(out / "flct_hmi.Ic_45s_continuum_w3600s_s5px_k1.h5") as f:
+    with h5py.File(flow_file) as f:
         t_mid, VX, VY = f["t_mid_s"][:], f["vx"][:], f["vy"][:]
     t_h = t_mid / 3600
 

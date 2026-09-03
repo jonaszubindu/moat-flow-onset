@@ -65,8 +65,9 @@ Seed events come from the penumbra-formation literature:
 - NOAA 11490 (May 2012) — penumbra formation and Evershed-flow onset,
   Murabito et al. 2016, ApJ 825, 75 ([arXiv:1604.05610](https://arxiv.org/abs/1604.05610)).
 - Murabito et al. 2018, ApJ 855, 58 — sample of 12 β-type ARs from 2011–2012
-  with observed penumbra formation. **TODO: transcribe Table 1 of that paper
-  into `events.yaml`** (not machine-readable from the web).
+  with observed penumbra formation; Table 1 is in `events.yaml`, extracted
+  from the IOP full text. **Verify against the PDF before production runs**
+  — AR 11243's row came out wrong (see `VETTING.md` section A).
 - Review: Murabito et al. 2019 ([arXiv:1901.05207](https://arxiv.org/abs/1901.05207));
   onset study (pre-HMI benchmark AR 11024): García-Rivas et al. 2024
   ([arXiv:2403.18455](https://arxiv.org/abs/2403.18455)).
@@ -85,15 +86,79 @@ cp config.example.yaml config.yaml   # then edit: jsoc_email, data_root
 `pyflct` needs the FLCT C library; `pip install pyflct` ships wheels for
 common platforms (macOS arm64 included).
 
-## Workflow
+## Cluster deployment
+
+Only **one line** changes: `data_root` in `config.yaml`. No path is
+hardcoded anywhere in `src/` or `scripts/` — everything else derives from
+`REPO_ROOT`, which the package computes from its own module location, so
+it follows wherever the repo is cloned. Absolute `data_root` values pass
+through as given; relative ones resolve against the repo root.
 
 ```bash
-# 1. Fill in HARPNUM + time window for catalog entries
+git clone git@github.com:jonaszubindu/moat-flow-onset.git
+cd moat-flow-onset
+python -m venv .venv && source .venv/bin/activate
+pip install -e .
+cp config.example.yaml config.yaml     # config.yaml is gitignored — this IS the setup step
+# then edit one line:  data_root: /sml/zbindenj/moatflow
+```
+
+`catalog/events.yaml` travels with the clone already resolved (HARP
+numbers, windows, patch anchors), so `resolve_event.py` need not be
+re-run. `jsoc_email` stays the same.
+
+Four environment gotchas that are not about paths:
+
+1. **`pyflct`** needs the FLCT C library. Verify before queuing a long
+   job: `python -c "import pyflct"`.
+2. **`ffmpeg`** is required only for the movies (`quicklook.py`,
+   `moat_movie.py`) and is often absent on clusters — `module load
+   ffmpeg` or `conda install ffmpeg`. Cubes, FLCT, onset analysis and
+   PNG figures work without it; matplotlib is pinned to the headless
+   `Agg` backend.
+3. **JSOC serializes exports per registered e-mail** — one pending
+   export at a time. Parallel array jobs downloading different events
+   will collide; run downloads as one sequential job, or stagger them.
+4. **Volume**: ~10-15 GB of FITS per event per 45 s series, plus a cube
+   of the same size. `cadence: 90s` in `config.yaml` halves it. Raw
+   FITS may be deleted once a cube is built and vetted (the cube carries
+   data, times and the reference WCS) — keep them only if per-frame WCS
+   is needed, e.g. for the Doppler deprojection.
+
+## Workflow
+
+Per event, in order:
+
+```bash
+# 1. Resolve HARPNUM + download window (only for new catalog entries)
 python scripts/resolve_event.py AR11490
 
-# 2. Download SHARPs (720 s) and 45 s tracked cutouts for one event
-python scripts/download_event.py AR11490 --sharps --patches
+# 2. Download. SHARPs are cheap (vetting/context); the 45 s series carry
+#    the science — hmi.Ic_45s for granulation LCT, hmi.M_45s for MMFs.
+python scripts/download_event.py AR11490 --sharps
+python scripts/download_event.py AR11490 --patches --series hmi.Ic_45s
 
-# 3. Build HDF5 cubes and run FLCT
-python scripts/run_flct.py AR11490 --segment continuum
+# 3. Vet: builds the QUALITY-filtered cube, reports cadence gaps and
+#    scene drift, writes movie + summary figures.
+python scripts/quicklook.py AR11490 --series hmi.Ic_45s
+
+# 4. Flow maps (hourly windows, sigma 5 px). Add --thresh 30 for
+#    magnetograms so sparse MMFs are not diluted by noise pixels.
+python scripts/run_flct.py AR11490 --series hmi.Ic_45s --window 3600 --sigma 5
+
+# 5. The science product: tracked penumbral area vs moat outflow
+#    (both tracers), -> onset_series.npz + onset_comparison.png
+python scripts/onset_analysis.py AR11490
 ```
+
+Optional, per event or once:
+
+```bash
+python scripts/vet_batch.py                    # SHARP + quicklook for every event
+python scripts/verify_flct.py AR11490 --lon0 -35 --lat -13.1   # Doppler + divergence checks
+python scripts/moat_movie.py AR11490           # annotated tracking movie
+```
+
+`scripts/example_m45s_sharp_fov.py` is a standalone (moatflow-free)
+example of the JSOC `im_patch` recipe, useful for handing the download
+method to someone else.
