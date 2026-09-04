@@ -99,9 +99,29 @@ def download_patches(event: dict, jsoc_email: str, out_dir: Path,
     out_dir.mkdir(parents=True, exist_ok=True)
 
     t0, t1 = _parse(event["t_start"]), _parse(event["t_end"])
+    chunks = list(_chunks(t0, t1, chunk_hours))
+    n_done = sum((out_dir / f".done_{c0:%Y%m%dT%H%M}").exists()
+                 for c0, _ in chunks)
+    # State banner: a resumed run is otherwise indistinguishable from a
+    # fresh one, because drms restarts its "file 1 of N" counter for every
+    # chunk and skipped chunks print nothing.
+    if n_done == len(chunks):
+        print(f"{series}: all {len(chunks)} chunks already complete — "
+              "nothing to download.")
+        return []
+    if n_done:
+        first = next(c0 for c0, _ in chunks
+                     if not (out_dir / f".done_{c0:%Y%m%dT%H%M}").exists())
+        print(f"{series}: RESUMING — {n_done}/{len(chunks)} chunks already "
+              f"complete, continuing at {first:%Y-%m-%d %H:%M} "
+              f"(chunk {n_done + 1}).")
+    else:
+        print(f"{series}: {len(chunks)} chunks to download, "
+              f"{t0:%Y-%m-%d %H:%M} to {t1:%Y-%m-%d %H:%M}.")
+
     downloaded: list[str] = []
     failed: list[str] = []
-    for c0, c1 in _chunks(t0, t1, chunk_hours):
+    for i_chunk, (c0, c1) in enumerate(chunks, start=1):
         qstr = (f"{series}[{jsoc_time(c0.isoformat())}-"
                 f"{jsoc_time(c1.isoformat())}@{cadence}]{{{segment}}}")
         marker = out_dir / f".done_{c0:%Y%m%dT%H%M}"
@@ -116,7 +136,7 @@ def download_patches(event: dict, jsoc_email: str, out_dir: Path,
         # not the whole run.
         for attempt in range(1, retries + 1):
             try:
-                print(f"Exporting {qstr}" +
+                print(f"[chunk {i_chunk}/{len(chunks)}] Exporting {qstr}" +
                       (f" (attempt {attempt})" if attempt > 1 else ""))
                 req = client.export(qstr, method="url", protocol="fits",
                                     process=process)
