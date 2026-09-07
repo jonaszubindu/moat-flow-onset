@@ -20,6 +20,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 
+from moatflow.analysis.audit import audit_series, render_audit_movie
 from moatflow.analysis.spottrack import PX_MM, track_spot
 from moatflow.catalog import load_events
 from moatflow.config import event_dir, load_config
@@ -62,7 +63,18 @@ def main():
     ap.add_argument("--seed-h", type=float, default=None,
                     help="tracking seed epoch [h]; default: literature "
                          "formation end + 8 h")
-    ap.add_argument("--vthresh", type=float, default=0.15)
+    ap.add_argument("--vthresh", type=float, default=0.15,
+                    help="absolute mode: km/s; relative mode: fraction of "
+                         "this event's own plateau (try 0.4)")
+    ap.add_argument("--vthresh-mode", choices=["absolute", "relative"],
+                    default="absolute",
+                    help="relative rescales the threshold by the event's "
+                         "plateau, which makes the onset insensitive to the "
+                         "annulus convention (see VETTING.md section C)")
+    ap.add_argument("--annulus", choices=["fixed", "scaled"], default="fixed",
+                    help="fixed: r_spot+1Mm, 6Mm wide; scaled: 1.2-2.5 r_spot")
+    ap.add_argument("--no-audit", action="store_true",
+                    help="skip the verification movie (still writes its .npz)")
     args = ap.parse_args()
 
     cfg = load_config()
@@ -123,21 +135,58 @@ def main():
     print(f"tracked {tr['valid'].sum()}/{len(frames)} epochs "
           f"(seed {seed_h:.0f} h)")
 
-    v_gran = moat_curve(VX, VY, tr, frames[0].shape)
+    # The quoted curve is the contamination-masked one: pixels of other
+    # spots/pores inside the annulus (and their disturbed surroundings)
+    # are not moat flow. audit_series returns both so the difference is
+    # recorded rather than assumed.
+    aud = audit_series(frames, tr, VX, VY, mode=args.annulus)
+    v_gran = aud["v_clean"]
+
     mfile = out / "flct_hmi.M_45s_magnetogram_w3600s_s5px_k1.h5"
     v_mmf = None
     if mfile.exists():
         with h5py.File(mfile) as f:
-            v_mmf = moat_curve(f["vx"][:], f["vy"][:], tr, frames[0].shape)
+            aud_m = audit_series(frames, tr, f["vx"][:], f["vy"][:],
+                                 mode=args.annulus)
+        v_mmf = aud_m["v_clean"]
 
     np.savez(out / "onset_series.npz", t_h=t_h,
              a_pen=tr["area_penumbra"], a_umb=tr["area_umbra"],
-             v_gran=v_gran,
+             v_gran=v_gran, v_gran_unmasked=aud["v_raw"],
              v_mmf=v_mmf if v_mmf is not None else np.full_like(v_gran, np.nan),
+             frac_contaminated=aud["frac_contaminated"],
+             sector_scatter=aud["sector_scatter"],
+             n_sect_rejected=aud["n_sect_rejected"],
+             annulus_mode=args.annulus,
              valid=tr["valid"], pf_lit=(pf0, pf1))
+
+    fc, sc = aud["frac_contaminated"], aud["sector_scatter"]
+    d = aud["v_clean"] - aud["v_raw"]
+    print(f"audit: annulus contaminated median {np.nanmedian(fc)*100:.1f}%, "
+          f"max {np.nanmax(fc)*100:.1f}%; masking shifts the curve by at most "
+          f"{np.nanmax(np.abs(d))*1000:.0f} m/s")
+    print(f"       sector scatter (last 20 h) "
+          f"{np.nanmedian(sc[t_h > t_h[-1]-20]):.2f} km/s "
+          f"— compare with the plateau value below")
+
+    if not args.no_audit:
+        mp4 = out / "quicklook" / "moat_audit.mp4"
+        try:
+            render_audit_movie(frames, tr, VX, VY, t_h,
+                               [t_iso[i] for i in epoch_idx], aud, mp4,
+                               event_id=args.event_id)
+            print(f"wrote {mp4}")
+        except Exception as e:           # ffmpeg missing on clusters
+            print(f"audit movie skipped ({e}); numbers are in onset_series.npz")
 
     kern = np.ones(3) / 3
     sm = lambda v: np.convolve(np.nan_to_num(v), kern, "same")
+    plateau = np.nanmean(sm(v_gran)[t_h > t_h[-1] - 20])
+    thr = (args.vthresh if args.vthresh_mode == "absolute"
+           else args.vthresh * plateau)
+    if args.vthresh_mode == "relative":
+        print(f"threshold: {args.vthresh:.2f} x plateau = {thr:.3f} km/s")
+
     fig, ax1 = plt.subplots(figsize=(11, 5.4))
     ax1.plot(t_h, tr["area_penumbra"], "o-", ms=3, color="tab:orange",
              label="penumbral area (tracked spot)")
@@ -152,7 +201,7 @@ def main():
         ax2.plot(t_h, sm(v_mmf), "s-", ms=3, color="tab:purple",
                  label="moat outflow, MMF (valid post-penumbra)")
     ax2.axhline(0, color="k", lw=0.5)
-    ax2.axhline(args.vthresh, color="gray", lw=0.5, ls="--")
+    ax2.axhline(thr, color="gray", lw=0.5, ls="--")
     ax2.set_ylabel("moat outflow [km/s] (3h smooth)", color="tab:blue")
     if np.isfinite(pf0):
         ax1.axvspan(pf0, min(pf1, t_h[-1]), alpha=0.12, color="green",
@@ -167,8 +216,8 @@ def main():
     fig.tight_layout()
     fig.savefig(out / "quicklook" / "onset_comparison.png", dpi=140)
 
-    on_g = onset(t_h, sm(v_gran), args.vthresh)
-    on_m = onset(t_h, sm(v_mmf), args.vthresh) if v_mmf is not None else np.nan
+    on_g = onset(t_h, sm(v_gran), thr)
+    on_m = onset(t_h, sm(v_mmf), thr) if v_mmf is not None else np.nan
     print(f"literature formation interval: {pf0:.1f} - {pf1:.1f} h")
     print(f"provisional moat onsets: granulation {on_g:.1f} h, MMF {on_m:.1f} h")
     print(f"plateau (last 20 h): gran {np.nanmean(sm(v_gran)[t_h > t_h[-1]-20]):.2f} km/s")

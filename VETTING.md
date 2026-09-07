@@ -83,3 +83,31 @@ the boundary per epoch — compute B_vert along the umbral boundary
 through each formation sequence and check constancy/threshold behavior.
 Cheap addition to the batch run; do NOT build the penumbra-onset
 definition on it (use area-threshold + persistence instead).
+
+## F. Annulus convention dominates the onset time (found 2026-09-07)
+
+The `moat_audit` verification showed the annulus geometry — not the FLCT
+parameters — is the dominant systematic on the onset time.
+
+Onset with the ABSOLUTE 0.15 km/s rule, fixed vs scaled annulus
+(fixed = r_spot+1 Mm, 6 Mm wide; scaled = 1.2-2.5 r_spot):
+
+| event   | fixed  | scaled | diff   | plateau fixed / scaled |
+|---------|--------|--------|--------|------------------------|
+| AR11490 | 43.5 h | 66.5 h | 23.0 h | 0.36 / 0.23 km/s       |
+| AR11210 | 45.5 h | 45.5 h |  0.0 h | 0.37 / 0.36 km/s       |
+| AR11184 | 58.5 h | 73.5 h | 15.0 h | 0.16 / 0.14 km/s       |
+
+Cause: the scaled annulus reaches further out into the weaker outer moat
+and dilutes the mean, so an ABSOLUTE threshold is crossed later. It is
+largely a threshold artefact, not a flow difference.
+
+With a RELATIVE threshold (0.4 x that event's own plateau) the two
+conventions agree to 5.0 / 0.0 / 3.0 h — comparable to the +-1 h FLCT
+parameter spread.
+
+- [ ] DECISION NEEDED: adopt `--vthresh-mode relative --vthresh 0.4` as
+      the standard onset rule? Recommended: it removes a 15-23 h
+      systematic. Cost: the onset is then defined relative to each
+      event's own mature moat strength, which must be stated explicitly
+      in the paper. The absolute rule remains the default until blessed.
