@@ -63,14 +63,16 @@ def main():
     ap.add_argument("--seed-h", type=float, default=None,
                     help="tracking seed epoch [h]; default: literature "
                          "formation end + 8 h")
-    ap.add_argument("--vthresh", type=float, default=0.15,
-                    help="absolute mode: km/s; relative mode: fraction of "
-                         "this event's own plateau (try 0.4)")
+    ap.add_argument("--vthresh", type=float, default=None,
+                    help="relative mode: fraction of this event's own "
+                         "plateau (default 0.4); absolute mode: km/s "
+                         "(default 0.15)")
     ap.add_argument("--vthresh-mode", choices=["absolute", "relative"],
-                    default="absolute",
-                    help="relative rescales the threshold by the event's "
-                         "plateau, which makes the onset insensitive to the "
-                         "annulus convention (see VETTING.md section C)")
+                    default="relative",
+                    help="relative (default) rescales the threshold by the "
+                         "event's own plateau, which removes the 15-23 h "
+                         "systematic from the annulus convention "
+                         "(VETTING.md section F)")
     ap.add_argument("--annulus", choices=["fixed", "scaled"], default="fixed",
                     help="fixed: r_spot+1Mm, 6Mm wide; scaled: 1.2-2.5 r_spot")
     ap.add_argument("--no-audit", action="store_true",
@@ -182,10 +184,15 @@ def main():
     kern = np.ones(3) / 3
     sm = lambda v: np.convolve(np.nan_to_num(v), kern, "same")
     plateau = np.nanmean(sm(v_gran)[t_h > t_h[-1] - 20])
-    thr = (args.vthresh if args.vthresh_mode == "absolute"
-           else args.vthresh * plateau)
+    frac = args.vthresh if args.vthresh is not None else \
+        (0.4 if args.vthresh_mode == "relative" else 0.15)
     if args.vthresh_mode == "relative":
-        print(f"threshold: {args.vthresh:.2f} x plateau = {thr:.3f} km/s")
+        thr = frac * plateau
+        print(f"onset threshold: {frac:.2f} x plateau({plateau:.2f}) "
+              f"= {thr:.3f} km/s")
+    else:
+        thr = frac
+        print(f"onset threshold: {thr:.3f} km/s (absolute)")
 
     fig, ax1 = plt.subplots(figsize=(11, 5.4))
     ax1.plot(t_h, tr["area_penumbra"], "o-", ms=3, color="tab:orange",

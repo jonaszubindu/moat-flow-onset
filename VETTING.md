@@ -106,8 +106,31 @@ With a RELATIVE threshold (0.4 x that event's own plateau) the two
 conventions agree to 5.0 / 0.0 / 3.0 h — comparable to the +-1 h FLCT
 parameter spread.
 
-- [ ] DECISION NEEDED: adopt `--vthresh-mode relative --vthresh 0.4` as
-      the standard onset rule? Recommended: it removes a 15-23 h
-      systematic. Cost: the onset is then defined relative to each
-      event's own mature moat strength, which must be stated explicitly
-      in the paper. The absolute rule remains the default until blessed.
+- [x] DECIDED 2026-09-07: **relative threshold (0.4 x the event's own
+      plateau) is now the default**; `--vthresh-mode absolute` still
+      available. State the relative definition explicitly in the paper.
+- [x] Annulus stays **fixed** (r_spot + 1 Mm, 6 Mm wide). With the
+      relative threshold the choice barely moves the onset, and fixed
+      samples better: it sits on the radial peak, giving a higher
+      plateau (AR11490 0.36 vs 0.23 km/s) and a better ring SNR
+      (2.6 vs 1.7), without more contamination. The scaled convention
+      also grows into the neighbours in a complex group.
+
+Onset times under the adopted rule (fixed annulus, relative threshold,
+contamination-masked curve):
+
+| event   | onset  | plateau    | sector scatter | contamination med/max |
+|---------|--------|------------|----------------|-----------------------|
+| AR11490 | 43.5 h | 0.35 km/s  | 0.14           |  0.0% /  5.2%         |
+| AR11210 | 45.5 h | 0.36 km/s  | 0.14           |  0.0% / 15.2%         |
+| AR11184 | 53.5 h | 0.16 km/s  | 0.30           |  5.5% / 61.9%         |
+
+## G. AR11184 is the weak event — inspect before trusting it
+
+The audit numbers single it out: plateau 0.16 km/s with sector scatter
+0.30 (ring SNR ~0.5, i.e. the "ring" is not a ring), annulus up to 62 %
+contaminated, and contamination masking moves the curve by up to
+334 m/s — an order of magnitude more than AR11490 (22 m/s) or AR11210
+(32 m/s). Watch `data/AR11184/quicklook/moat_audit.mp4` and decide:
+trim the late window (the AR approaches the +40 deg longitude edge after
+~115 h), or drop the event from the onset statistics.
