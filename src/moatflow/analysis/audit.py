@@ -138,8 +138,13 @@ def audit_series(frames, tr, VX, VY, mode="fixed", **geom):
 
 
 def render_audit_movie(frames, tr, VX, VY, t_h, t_iso, aud, out_mp4,
-                       event_id="", fps=6, stride=1, half=110):
-    """Write the verification movie. Requires ffmpeg."""
+                       event_id="", fps=6, stride=1, half=110, pf_lit=None):
+    """Write the verification movie. Requires ffmpeg.
+
+    pf_lit : (start_h, end_h) literature penumbra-formation interval,
+             shaded in the two timeline panels so the flow history can be
+             read against it.
+    """
     import matplotlib.pyplot as plt
     from matplotlib.animation import FFMpegWriter
     from matplotlib.patches import Circle
@@ -177,17 +182,33 @@ def render_audit_movie(frames, tr, VX, VY, t_h, t_iso, aud, out_mp4,
                             vmin=-vmax, vmax=vmax, shading="nearest")
             axTR.plot(t_h, aud["r0_mm"], "-", color="k", lw=1.0)
             axTR.plot(t_h, aud["r1_mm"], "-", color="k", lw=1.0)
+            if pf_lit is not None and np.isfinite(pf_lit[0]):
+                # bracket the interval without hiding the map underneath
+                a, b = pf_lit[0], min(pf_lit[1], t_h[-1])
+                for x in (a, b):
+                    axTR.axvline(x, color="green", lw=1.4, ls="--")
+                axTR.plot([a, b], [RAD_MAX_MM * 0.965] * 2, color="green",
+                          lw=5, solid_capstyle="butt", clip_on=False)
+                axTR.text((a + b) / 2, RAD_MAX_MM * 0.86,
+                          "literature penumbra formation", color="green",
+                          ha="center", va="top", fontsize=7.5)
             axTR.axvline(t_h[k], color="lime", lw=1.3)
             axTR.set(ylabel="r [Mm]", ylim=(0, RAD_MAX_MM))
             axTR.set_title("moat flow timeline: azimuthal mean v$_r$(r, t); "
-                           "black = annulus edges (red = outflow)",
-                           fontsize=8.5)
+                           "black = annulus edges (red = outflow); "
+                           "green = literature penumbra formation.  "
+                           "The curve below is this map averaged between "
+                           "the black lines.", fontsize=8.5)
             axTR.tick_params(labelbottom=False)
             axCur.plot(t_h, aud["v_raw"], "-", color="0.7", lw=1.1,
                        label="annulus mean, unmasked")
             axCur.plot(t_h, aud["v_clean"], "-", color="tab:blue", lw=1.3,
                        label="contamination masked (quoted)")
             axCur.axhline(0, color="k", lw=0.5)
+            if pf_lit is not None and np.isfinite(pf_lit[0]):
+                axCur.axvspan(pf_lit[0], min(pf_lit[1], t_h[-1]),
+                              alpha=0.13, color="green",
+                              label="literature penumbra formation")
             axCur.axvline(t_h[k], color="crimson", lw=1.2)
             axCur.set(xlabel="hours since start", ylabel="v$_r$ [km/s]")
             axCur.legend(fontsize=7.5, loc="upper left")

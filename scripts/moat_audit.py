@@ -13,7 +13,10 @@ import argparse
 import h5py
 import numpy as np
 
+from datetime import datetime
+
 from moatflow.analysis.audit import audit_series, render_audit_movie
+from moatflow.catalog import load_events
 from moatflow.analysis.spottrack import track_spot
 from moatflow.config import event_dir, load_config
 from moatflow.cubes import load_cube
@@ -43,12 +46,21 @@ def main():
     seed = args.seed_h if args.seed_h is not None else 0.85 * t_h[-1]
     tr = track_spot(frames, int(np.argmin(np.abs(t_h - seed))))
 
+    # literature penumbra-formation interval, in hours since window start
+    ev = load_events()[args.event_id]
+    t0 = datetime.strptime(str(t_iso[0])[:19].replace("_", "T")
+                           .replace(".", "-", 2), "%Y-%m-%dT%H:%M:%S")
+    def lit(key):
+        return ((datetime.fromisoformat(str(ev[key])) - t0).total_seconds()
+                / 3600) if ev.get(key) else np.nan
+    pf_lit = (lit("t_penumbra_start"), lit("t_penumbra_end"))
+
     aud = audit_series(frames, tr, VX, VY, mode=args.annulus)
     suffix = "" if args.annulus == "fixed" else f"_{args.annulus}"
     mp4 = out / "quicklook" / f"moat_audit{suffix}.mp4"
     render_audit_movie(frames, tr, VX, VY, t_h, [t_iso[i] for i in idx],
                        aud, mp4, event_id=args.event_id, fps=args.fps,
-                       stride=args.stride, half=args.half)
+                       stride=args.stride, half=args.half, pf_lit=pf_lit)
     print(f"wrote {mp4}")
 
 

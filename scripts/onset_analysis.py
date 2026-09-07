@@ -176,7 +176,7 @@ def main():
         try:
             render_audit_movie(frames, tr, VX, VY, t_h,
                                [t_iso[i] for i in epoch_idx], aud, mp4,
-                               event_id=args.event_id)
+                               event_id=args.event_id, pf_lit=(pf0, pf1))
             print(f"wrote {mp4}")
         except Exception as e:           # ffmpeg missing on clusters
             print(f"audit movie skipped ({e}); numbers are in onset_series.npz")
