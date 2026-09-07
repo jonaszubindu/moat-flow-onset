@@ -80,6 +80,20 @@ def sector_profile(vr, ann, phi, bad):
     return np.array(mid), np.array(vals), np.array(rejected)
 
 
+RAD_MAX_MM, RAD_STEP_MM = 30.0, 1.0
+
+
+def radial_profile_1d(vr, rr, bad, r_max_mm=RAD_MAX_MM, step_mm=RAD_STEP_MM):
+    """Azimuthally averaged v_r(r) on a fixed grid, contamination masked."""
+    edges = np.arange(0, r_max_mm + step_mm, step_mm) / PX_MM
+    prof = np.full(len(edges) - 1, np.nan)
+    for i, (a, b) in enumerate(zip(edges[:-1], edges[1:])):
+        sel = (rr >= a) & (rr < b) & ~bad & np.isfinite(vr)
+        if sel.sum() > 20:
+            prof[i] = np.nanmean(vr[sel])
+    return prof
+
+
 def audit_series(frames, tr, VX, VY, mode="fixed", **geom):
     """Per-epoch audit quantities and cached per-frame geometry.
 
@@ -91,6 +105,11 @@ def audit_series(frames, tr, VX, VY, mode="fixed", **geom):
     out = {k: np.full(n, np.nan) for k in
            ("v_raw", "v_clean", "frac_contaminated", "sector_scatter")}
     out["n_sect_rejected"] = np.zeros(n, int)
+    r_mm = np.arange(0, RAD_MAX_MM, RAD_STEP_MM) + RAD_STEP_MM / 2
+    out["radial_r_mm"] = r_mm
+    out["radial_map"] = np.full((n, len(r_mm)), np.nan)
+    out["r0_mm"] = np.full(n, np.nan)
+    out["r1_mm"] = np.full(n, np.nan)
     cache = {}
     for k in range(n):
         if not tr["valid"][k]:
@@ -108,6 +127,8 @@ def audit_series(frames, tr, VX, VY, mode="fixed", **geom):
         if clean.sum() > 30:
             out["v_clean"][k] = np.nanmean(vr[clean])
         out["frac_contaminated"][k] = (ann & bad).sum() / ann.sum()
+        out["radial_map"][k] = radial_profile_1d(vr, rr, bad)
+        out["r0_mm"][k], out["r1_mm"][k] = r0 * PX_MM, r1 * PX_MM
         mid, vals, rej = sector_profile(vr, ann, phi, bad)
         out["n_sect_rejected"][k] = int(rej.sum())
         out["sector_scatter"][k] = np.nanstd(vals[~rej]) if (~rej).any() else np.nan
@@ -129,20 +150,39 @@ def render_audit_movie(frames, tr, VX, VY, t_h, t_iso, aud, out_mp4,
                  vmin=np.percentile(sample, 0.5),
                  vmax=np.percentile(sample, 99.9))
 
-    fig = plt.figure(figsize=(13, 8))
-    gs = fig.add_gridspec(3, 2, width_ratios=[1.35, 1],
-                          height_ratios=[1.1, 1, 0.55], hspace=0.38,
-                          wspace=0.22)
+    fig = plt.figure(figsize=(13, 10.5))
+    gs = fig.add_gridspec(4, 2, width_ratios=[1.35, 1],
+                          height_ratios=[1.05, 0.95, 0.85, 0.6],
+                          hspace=0.55, wspace=0.22)
     axIm = fig.add_subplot(gs[0:2, 0])
     axPol = fig.add_subplot(gs[0, 1], projection="polar")
     axRad = fig.add_subplot(gs[1, 1])
-    axCur = fig.add_subplot(gs[2, :])
-    writer = FFMpegWriter(fps=fps, bitrate=4500)
+    axTR = fig.add_subplot(gs[2, :])
+    axCur = fig.add_subplot(gs[3, :])
+    writer = FFMpegWriter(fps=fps, bitrate=5000)
+
+    # static background of the time-radius map: the moat's whole life
+    rmap = aud["radial_map"]
+    vmax = np.nanpercentile(np.abs(rmap), 98) if np.isfinite(rmap).any() else 0.5
 
     with writer.saving(fig, str(out_mp4), dpi=105):
         for k in range(0, len(frames), stride):
-            for ax in (axIm, axPol, axRad, axCur):
+            for ax in (axIm, axPol, axRad, axCur, axTR):
                 ax.clear()
+
+            # time-radius map: v_r(r, t) — the moat's entire history, with
+            # the annulus edges drawn on top so you can see at a glance
+            # whether the measurement window follows the flow peak.
+            axTR.pcolormesh(t_h, aud["radial_r_mm"], rmap.T, cmap="RdBu_r",
+                            vmin=-vmax, vmax=vmax, shading="nearest")
+            axTR.plot(t_h, aud["r0_mm"], "-", color="k", lw=1.0)
+            axTR.plot(t_h, aud["r1_mm"], "-", color="k", lw=1.0)
+            axTR.axvline(t_h[k], color="lime", lw=1.3)
+            axTR.set(ylabel="r [Mm]", ylim=(0, RAD_MAX_MM))
+            axTR.set_title("moat flow timeline: azimuthal mean v$_r$(r, t); "
+                           "black = annulus edges (red = outflow)",
+                           fontsize=8.5)
+            axTR.tick_params(labelbottom=False)
             axCur.plot(t_h, aud["v_raw"], "-", color="0.7", lw=1.1,
                        label="annulus mean, unmasked")
             axCur.plot(t_h, aud["v_clean"], "-", color="tab:blue", lw=1.3,
@@ -152,6 +192,14 @@ def render_audit_movie(frames, tr, VX, VY, t_h, t_iso, aud, out_mp4,
             axCur.set(xlabel="hours since start", ylabel="v$_r$ [km/s]")
             axCur.legend(fontsize=7.5, loc="upper left")
             axCur.grid(alpha=0.3)
+            axCur.set_xlim(axTR.get_xlim())
+            axC2 = axCur.twinx()
+            axC2.fill_between(t_h, 0, aud["frac_contaminated"] * 100,
+                              color="tab:red", alpha=0.25, step="mid")
+            axC2.set_ylabel("annulus\ncontaminated [%]", color="tab:red",
+                            fontsize=7.5)
+            axC2.tick_params(labelsize=6.5, colors="tab:red")
+            axC2.set_ylim(0, max(20, np.nanmax(aud["frac_contaminated"]) * 110))
 
             if k not in cache:
                 axIm.text(.5, .5, "tracking lost at this epoch", ha="center",
@@ -159,8 +207,9 @@ def render_audit_movie(frames, tr, VX, VY, t_h, t_iso, aud, out_mp4,
                 for ax in (axIm, axPol, axRad):
                     ax.set_axis_off()
                 fig.suptitle(f"{event_id} moat audit — t = {t_h[k]:.1f} h",
-                             y=0.98, fontsize=11)
+                             y=0.985, fontsize=11)
                 writer.grab_frame()
+                axC2.remove()
                 continue
 
             rr, phi, ann, r0, r1, vr, bad, mid, vals, rej = cache[k]
@@ -215,6 +264,7 @@ def render_audit_movie(frames, tr, VX, VY, t_h, t_iso, aud, out_mp4,
             fig.suptitle(f"{event_id} moat audit — t = {t_h[k]:.1f} h  "
                          f"({t_iso[k][:16]})   annulus contaminated: "
                          f"{aud['frac_contaminated'][k]*100:.0f}%",
-                         y=0.98, fontsize=11)
+                         y=0.985, fontsize=11)
             writer.grab_frame()
+            axC2.remove()
     plt.close(fig)
