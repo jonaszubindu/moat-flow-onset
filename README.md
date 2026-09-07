@@ -149,14 +149,30 @@ python scripts/run_flct.py AR11490 --series hmi.Ic_45s --window 3600 --sigma 5
 # 5. The science product: tracked penumbral area vs moat outflow
 #    (both tracers), -> onset_series.npz + onset_comparison.png
 python scripts/onset_analysis.py AR11490
+
+# 6. MANDATORY verification of that curve: shows frame by frame which
+#    pixels enter the annulus average, the per-sector breakdown, and the
+#    radial profile -> moat_audit.mp4 + moat_audit.npz
+python scripts/moat_audit.py AR11490
 ```
+
+Step 6 is not optional. An azimuthal mean over an annulus can look like a
+moat while being produced by something else — a couple of hot sectors, a
+neighbouring pore inside the annulus, or an annulus sitting beside the
+actual flow peak rather than on it. The audit movie shows all three at
+once, and its `.npz` records the contaminated fraction and the difference
+between the masked and unmasked curve, so the contamination is a number
+in the paper rather than an assumption. What a healthy moat looks like:
+**all sectors positive and comparable** (a full ring in the polar plot),
+the **radial profile peaking inside the shaded annulus**, and **arrows
+radiating outward** on the image.
 
 Optional, per event or once:
 
 ```bash
 python scripts/vet_batch.py                    # SHARP + quicklook for every event
 python scripts/verify_flct.py AR11490 --lon0 -35 --lat -13.1   # Doppler + divergence checks
-python scripts/moat_movie.py AR11490           # annotated tracking movie
+python scripts/moat_movie.py AR11490           # slow explanatory tracking movie
 ```
 
 `scripts/example_m45s_sharp_fov.py` is a standalone (moatflow-free)
