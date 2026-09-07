@@ -113,6 +113,12 @@ def main():
                 for r, ls in ((r0, "--"), (r1, "--")):
                     ax.add_patch(Circle((c[1], c[0]), r, fill=False,
                                         color="crimson", ls=ls, lw=1.1))
+                # same 10/20/30 Mm reference rings as the audit movie
+                for r_mm in (10, 20, 30):
+                    ax.add_patch(Circle((c[1], c[0]), r_mm / PX_MM,
+                                        fill=False, color="white", ls=":",
+                                        lw=1.4 if r_mm == 30 else 0.8,
+                                        alpha=0.9 if r_mm == 30 else 0.55))
                 ax.plot(c[1], c[0], "+", color="crimson", ms=10)
                 ax.set_xlim(c[1] - args.half, c[1] + args.half)
                 ax.set_ylim(c[0] - args.half, c[0] + args.half)

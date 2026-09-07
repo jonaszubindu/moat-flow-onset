@@ -138,18 +138,21 @@ def audit_series(frames, tr, VX, VY, mode="fixed", **geom):
 
 
 def render_audit_movie(frames, tr, VX, VY, t_h, t_iso, aud, out_mp4,
-                       event_id="", fps=6, stride=1, half=110, pf_lit=None):
+                       event_id="", fps=6, stride=1, half=None, pf_lit=None):
     """Write the verification movie. Requires ffmpeg.
 
     pf_lit : (start_h, end_h) literature penumbra-formation interval,
              shaded in the two timeline panels so the flow history can be
              read against it.
     """
+    import matplotlib.patheffects as pe
     import matplotlib.pyplot as plt
     from matplotlib.animation import FFMpegWriter
     from matplotlib.patches import Circle
 
     cache = aud["cache"]
+    if half is None:                       # keep the 30 Mm ring in frame
+        half = int(RAD_MAX_MM / PX_MM * 1.12)
     sample = frames[len(frames) // 2]
     ic_kw = dict(cmap="afmhot", origin="lower",
                  vmin=np.percentile(sample, 0.5),
@@ -246,12 +249,28 @@ def render_audit_movie(frames, tr, VX, VY, t_h, t_iso, aud, out_mp4,
             for r in (r0, r1):
                 axIm.add_patch(Circle((cx, cy), r, fill=False, color="crimson",
                                       ls="--", lw=1.1))
+            # radius rings for reading the image against the time-radius
+            # map below; 30 Mm is that map's outer edge
+            for r_mm in (10, 20, RAD_MAX_MM):
+                edge = r_mm >= RAD_MAX_MM
+                axIm.add_patch(Circle((cx, cy), r_mm / PX_MM, fill=False,
+                                      color="white", ls=":",
+                                      lw=1.5 if edge else 0.9,
+                                      alpha=0.95 if edge else 0.65))
+                axIm.text(cx, cy + r_mm / PX_MM, f"{r_mm:.0f} Mm",
+                          color="white", fontsize=6.5 if not edge else 7.5,
+                          ha="center", va="bottom", alpha=0.95,
+                          path_effects=[pe.withStroke(linewidth=1.6,
+                                                      foreground="black")])
             axIm.plot(cx, cy, "+", color="crimson", ms=11)
             axIm.set_xlim(cx - half, cx + half)
             axIm.set_ylim(cy - half, cy + half)
             axIm.set_axis_off()
             axIm.set_title("green = tracked spot | red = excluded (other "
-                           "spots) | dashed = moat annulus", fontsize=9)
+                           "spots) | red dashed = moat annulus\n"
+                           "white dotted = 10/20/30 Mm radius rings "
+                           "(30 Mm = outer edge of the map below)",
+                           fontsize=8.5)
 
             width = 2 * np.pi / max(len(mid), 1)
             axPol.bar(mid, np.nan_to_num(vals), width=width * 0.9,

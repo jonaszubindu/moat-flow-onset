@@ -29,7 +29,7 @@ def main():
     ap.add_argument("--annulus", choices=["fixed", "scaled"], default="fixed")
     ap.add_argument("--stride", type=int, default=1)
     ap.add_argument("--fps", type=int, default=6)
-    ap.add_argument("--half", type=int, default=110)
+    ap.add_argument("--half", type=int, default=None)
     ap.add_argument("--seed-h", type=float, default=None)
     args = ap.parse_args()
 
