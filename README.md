@@ -107,6 +107,16 @@ cp config.example.yaml config.yaml     # config.yaml is gitignored — this IS t
 numbers, windows, patch anchors), so `resolve_event.py` need not be
 re-run. `jsoc_email` stays the same.
 
+The project root (holding `catalog/events.yaml` and `config.yaml`) is
+found from `$MOATFLOW_ROOT` if set, else by walking up from the working
+directory, else from the package location. So a plain `pip install .`
+works as long as you run inside the checkout; for batch jobs that start
+elsewhere, set it explicitly:
+
+```bash
+export MOATFLOW_ROOT=/sml/zbindenj/moat-flow-onset
+```
+
 Four environment gotchas that are not about paths:
 
 1. **`pyflct`** needs the FLCT C library. Verify before queuing a long
