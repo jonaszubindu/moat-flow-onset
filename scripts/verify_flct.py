@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """Physical verifications that FLCT tracks real average flows.
 
-Two standard literature checks, using only data already on disk:
+Three standard literature checks, using only data already on disk:
 
 1. Divergence map (`<event>_flct_divergence.png`)
    The time-averaged divergence of the LCT flow field must show the
@@ -16,6 +16,15 @@ Two standard literature checks, using only data already on disk:
    time-averaged) Dopplergram around the spot is compared with the
    LOS-projection of the FLCT flow field. Agreement in phase and shape
    verifies the tracked flows against an independent observable.
+
+3. Shrinking-Sun immunity (`<event>_flct_shrinking_sun.png`)
+   LCT of granulation carries a known artefact that mimics a flow
+   converging on disk centre, up to ~1 km/s far from centre (Loptien et
+   al. 2016, A&A 590, A130). It is a large-scale, near-uniform bias, so
+   it must cancel in an azimuthal mean of the RADIAL component. This
+   check measures the patch-mean flow (the artefact itself) and then
+   recomputes the moat curve with that mean removed: if the two curves
+   agree, the moat metric is demonstrably immune.
 
 Usage: python scripts/verify_flct.py AR11490 --t-quiet 82 --t-doppler 88
 """
@@ -62,7 +71,8 @@ def main():
 
     # tracked spot geometry
     epoch_idx = [int(np.argmin(np.abs(times_s - t))) for t in t_mid]
-    tr = track_spot([np.asarray(ic[i]) for i in epoch_idx],
+    frames = [np.asarray(ic[i]) for i in epoch_idx]
+    tr = track_spot(frames,
                     int(np.argmin(np.abs(t_mid - args.t_quiet * 3600))))
 
     # ---- 1. divergence map -------------------------------------------
@@ -94,64 +104,108 @@ def main():
     fig.savefig(f1, dpi=140)
     plt.close(fig)
 
-    # ---- 2. Doppler cross-check --------------------------------------
-    vc, _, _ = load_cube(out / "cube_hmi.V_45s_Dopplergram.h5")
-    k = int(np.argmin(np.abs(t_mid - args.t_doppler * 3600)))
-    i0 = epoch_idx[k]
-    n_avg = 160                        # 2 h of 45 s frames
-    dop = np.mean([np.asarray(vc[i]) for i in
-                   range(max(0, i0 - n_avg // 2),
-                         min(len(vc), i0 + n_avg // 2), 4)], axis=0)
-    # remove large-scale background (rotation gradient, convective
-    # blueshift, meridional terms): subtract a 60-px gaussian smooth
-    dop_res = dop - ndimage.gaussian_filter(dop, 60)
+    # ---- 2. Doppler cross-check (needs the Dopplergram cube) ---------
+    vfile = out / "cube_hmi.V_45s_Dopplergram.h5"
+    cc, f2 = np.nan, None
+    if not vfile.exists():
+        print(f"skipping the Doppler cross-check: no {vfile.name} "
+              "(download hmi.V_45s for this event to enable it)")
+    else:
+      vc, _, _ = load_cube(vfile)
+      k = int(np.argmin(np.abs(t_mid - args.t_doppler * 3600)))
+      i0 = epoch_idx[k]
+      n_avg = 160                        # 2 h of 45 s frames
+      dop = np.mean([np.asarray(vc[i]) for i in
+                     range(max(0, i0 - n_avg // 2),
+                           min(len(vc), i0 + n_avg // 2), 4)], axis=0)
+      # remove large-scale background (rotation gradient, convective
+      # blueshift, meridional terms): subtract a 60-px gaussian smooth
+      dop_res = dop - ndimage.gaussian_filter(dop, 60)
 
-    vx = VX[max(k-1, 0):k+2].mean(0)
-    vy = VY[max(k-1, 0):k+2].mean(0)
+      vx = VX[max(k-1, 0):k+2].mean(0)
+      vy = VY[max(k-1, 0):k+2].mean(0)
 
-    # AR heliographic position at this epoch (synodic rotation)
-    lon = args.lon0 + 13.2 / 24.0 * (t_mid[k] / 3600)
-    l, b = np.deg2rad(lon), np.deg2rad(args.lat)
-    # LOS (away from observer) component of the horizontal flow at
-    # heliographic (l, b), B0 neglected: westward motion recedes as
-    # cos(b) sin(l); northward motion recedes as sin(b) cos(l)
-    # (negative in the southern hemisphere: northward = toward observer).
-    v_los_pred_kms = (vx * np.cos(b) * np.sin(l)
-                      + vy * np.sin(b) * np.cos(l))
+      # AR heliographic position at this epoch (synodic rotation)
+      lon = args.lon0 + 13.2 / 24.0 * (t_mid[k] / 3600)
+      l, b = np.deg2rad(lon), np.deg2rad(args.lat)
+      # LOS (away from observer) component of the horizontal flow at
+      # heliographic (l, b), B0 neglected: westward motion recedes as
+      # cos(b) sin(l); northward motion recedes as sin(b) cos(l)
+      # (negative in the southern hemisphere: northward = toward observer).
+      v_los_pred_kms = (vx * np.cos(b) * np.sin(l)
+                        + vy * np.sin(b) * np.cos(l))
 
-    cy, cx = tr["center"][k]
-    yy, xx = np.mgrid[0:dop.shape[0], 0:dop.shape[1]]
-    rr = np.hypot(xx - cx, yy - cy)
-    r0 = tr["r_spot_px"][k] + 1.0 / PX_MM
-    ann = (rr >= r0) & (rr < r0 + 6.0 / PX_MM)
-    phi = np.arctan2(yy - cy, xx - cx)
+      cy, cx = tr["center"][k]
+      yy, xx = np.mgrid[0:dop.shape[0], 0:dop.shape[1]]
+      rr = np.hypot(xx - cx, yy - cy)
+      r0 = tr["r_spot_px"][k] + 1.0 / PX_MM
+      ann = (rr >= r0) & (rr < r0 + 6.0 / PX_MM)
+      phi = np.arctan2(yy - cy, xx - cx)
 
-    bins = np.linspace(-np.pi, np.pi, 19)
-    phic = 0.5 * (bins[:-1] + bins[1:])
-    prof_d, prof_p = [], []
-    for a, b in zip(bins[:-1], bins[1:]):
-        sel = ann & (phi >= a) & (phi < b)
-        prof_d.append(np.nanmean(dop_res[sel]) / 1e3)   # m/s -> km/s
-        prof_p.append(np.nanmean(v_los_pred_kms[sel]))
-    prof_d, prof_p = np.array(prof_d), np.array(prof_p)
-    cc = np.corrcoef(prof_d, prof_p)[0, 1]
+      bins = np.linspace(-np.pi, np.pi, 19)
+      phic = 0.5 * (bins[:-1] + bins[1:])
+      prof_d, prof_p = [], []
+      for a, b in zip(bins[:-1], bins[1:]):
+          sel = ann & (phi >= a) & (phi < b)
+          prof_d.append(np.nanmean(dop_res[sel]) / 1e3)   # m/s -> km/s
+          prof_p.append(np.nanmean(v_los_pred_kms[sel]))
+      prof_d, prof_p = np.array(prof_d), np.array(prof_p)
+      cc = np.corrcoef(prof_d, prof_p)[0, 1]
 
-    fig, ax = plt.subplots(figsize=(9, 5))
-    ax.plot(np.rad2deg(phic), prof_d, "o-", label="Dopplergram (2 h avg,"
-            " background-removed)")
-    ax.plot(np.rad2deg(phic), prof_p, "s-", label="FLCT flows projected"
-            " onto LOS")
-    ax.axhline(0, color="k", lw=0.5)
-    ax.set(xlabel="azimuth around spot [deg]  (0 = solar W)",
-           ylabel="LOS velocity in moat annulus [km/s]",
-           title=f"{args.event_id} Doppler cross-check, t={t_mid[k]/3600:.0f} h"
-                 f" (AR at lon {lon:.0f} deg) — r = {cc:.2f}")
-    ax.legend()
-    ax.grid(alpha=0.3)
+      fig, ax = plt.subplots(figsize=(9, 5))
+      ax.plot(np.rad2deg(phic), prof_d, "o-", label="Dopplergram (2 h avg,"
+              " background-removed)")
+      ax.plot(np.rad2deg(phic), prof_p, "s-", label="FLCT flows projected"
+              " onto LOS")
+      ax.axhline(0, color="k", lw=0.5)
+      ax.set(xlabel="azimuth around spot [deg]  (0 = solar W)",
+             ylabel="LOS velocity in moat annulus [km/s]",
+             title=f"{args.event_id} Doppler cross-check, t={t_mid[k]/3600:.0f} h"
+                   f" (AR at lon {lon:.0f} deg) — r = {cc:.2f}")
+      ax.legend()
+      ax.grid(alpha=0.3)
+      fig.tight_layout()
+      f2 = out / "quicklook" / "flct_doppler_check.png"
+      fig.savefig(f2, dpi=140)
+    # ---- 3. shrinking-Sun immunity -----------------------------------
+    from moatflow.analysis.audit import audit_series
+    mvx = np.array([np.nanmean(VX[k]) for k in range(len(t_mid))])
+    mvy = np.array([np.nanmean(VY[k]) for k in range(len(t_mid))])
+    a_raw = audit_series(frames, tr, VX, VY)
+    a_cor = audit_series(frames, tr, VX - mvx[:, None, None],
+                         VY - mvy[:, None, None])
+    dif = a_cor["v_clean"] - a_raw["v_clean"]
+    good = np.isfinite(dif)
+    t_h = t_mid / 3600
+
+    fig, ax = plt.subplots(1, 2, figsize=(12, 4.2))
+    ax[0].plot(t_h, mvx * 1000, label="<v$_x$> over patch")
+    ax[0].plot(t_h, mvy * 1000, label="<v$_y$> over patch")
+    ax[0].axhline(0, color="k", lw=0.5)
+    ax[0].set(xlabel="hours since start", ylabel="patch-mean flow [m/s]",
+              title="the shrinking-Sun artefact itself\n(converges on disk "
+                    "centre, reverses at the meridian)")
+    ax[0].legend(fontsize=8); ax[0].grid(alpha=0.3)
+    ax[1].plot(t_h, a_raw["v_clean"], lw=1.4, label="moat curve")
+    ax[1].plot(t_h, a_cor["v_clean"], "--", lw=1.2,
+               label="patch-mean flow removed")
+    ax[1].axhline(0, color="k", lw=0.5)
+    ax[1].set(xlabel="hours since start", ylabel="v$_r$ [km/s]",
+              title=f"immunity: max shift "
+                    f"{np.nanmax(np.abs(dif[good]))*1000:.1f} m/s")
+    ax[1].legend(fontsize=8); ax[1].grid(alpha=0.3)
     fig.tight_layout()
-    f2 = out / "quicklook" / "flct_doppler_check.png"
-    fig.savefig(f2, dpi=140)
-    print(f"wrote {f1}\nwrote {f2}\nazimuthal correlation r = {cc:.2f}")
+    f3 = out / "quicklook" / "flct_shrinking_sun.png"
+    fig.savefig(f3, dpi=140)
+    plt.close(fig)
+
+    print(f"wrote {f1}" + (f"\nwrote {f2}" if f2 else "") + f"\nwrote {f3}")
+    if np.isfinite(cc):
+        print(f"azimuthal Doppler correlation r = {cc:.2f}")
+    print(f"shrinking-Sun: patch-mean drifts "
+          f"{(np.nanmean(mvx[t_h > t_h[-1]*0.75]) - np.nanmean(mvx[t_h < t_h[-1]*0.25]))*1000:+.0f}"
+          f" m/s across the window; moat curve shifts at most "
+          f"{np.nanmax(np.abs(dif[good]))*1000:.1f} m/s when it is removed")
 
 
 if __name__ == "__main__":

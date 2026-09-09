@@ -134,3 +134,68 @@ contaminated, and contamination masking moves the curve by up to
 (32 m/s). Watch `data/AR11184/quicklook/moat_audit.mp4` and decide:
 trim the late window (the AR approaches the +40 deg longitude edge after
 ~115 h), or drop the event from the onset statistics.
+
+## H. How the literature verifies LCT — and what we have (2026-09-09)
+
+Survey of verification practice in LCT papers, and our status against it.
+
+**1. Ground truth from simulations.** Verma, Steffen & Denker 2013
+(A&A 555, A136; arXiv:1305.6033) apply LCT to CO5BOLD continuum images
+where the true velocity field is known. Their protocol is a parameter
+sweep — spatial resolution (Gaussian kernels FWHM 40-320 km), sampling
+window (FWHM 400-1800 km), cadence (dt 10-480 s), averaging time
+(dT up to 1 h) — comparing flow-speed distributions and divergence
+morphology against the simulation at log tau = -1, 0, +1. Headline:
+LCT reproduces the morphology but **underestimates speeds by up to a
+factor 3**, and matches best the DEEPER layer (log tau = +1). Other
+work quotes correlation 0.99 with amplitudes a factor 1.8 low.
+  -> We have not done this. It is the one class of test we lack. It
+     matters for quoting absolute moat speeds, NOT for onset timing.
+     Cite the published factor and state that our speeds are lower
+     limits; our Doppler amplitude ratio ~0.5 is consistent with it.
+
+**2. Cross-check against an independent observable.**
+  - Doppler: we do this (r = 0.95, section in RESULTS.md).
+  - Helioseismology: Roudier et al. 2018 (A&A 611, A92) compare granule
+    tracking against time-distance helioseismology over 30 days and
+    recover differential rotation, meridional circulation and torsional
+    waves in agreement. Švanda/Roudier 2013 (ApJ 771, 32) likewise.
+    -> Not applicable at our 6 Mm annulus scale, but the right citation
+       for "granule tracking measures real plasma flows".
+
+**3. Cross-tracer consistency.** Verma & Denker 2018 (arXiv:1805.04356,
+moat extent in axisymmetric sunspots) run LCT on HMI continuum,
+magnetograms AND AIA 160 nm and note the magnetogram-based flow maps
+are "virtually identical" to the continuum ones.
+  -> We do exactly this (granulation vs MMF, r = 0.97).
+
+**4. Cross-method comparison.** Tremblay et al. 2018 (Sol. Phys. 293,
+57) compare DeepVel, LCT, FLCT and CST on the same data.
+  -> Not done. `moatflow.tracking.deepvel` is a stub if a referee asks.
+
+**5. Known systematics, explicitly addressed.** Loptien et al. 2016
+(A&A 590, A130; arXiv:1604.04469): the shrinking-Sun effect, an
+apparent converging flow toward disk centre from the viewing-angle
+asymmetry of granules, **up to ~1 km/s far from centre** (687 m/s at
+60 deg east, -814 m/s at 60 deg west), corrected by shifting images
+with Fourier interpolation to build calibration data.
+  -> NOW TESTED ON OUR OWN DATA (`flct_shrinking_sun.png`, check 3 of
+     `verify_flct.py`). We detect the artefact at the predicted level —
+     the patch-mean flow drifts -246 m/s (AR11210) and -227 m/s
+     (AR11490) across the window and reverses sign at the meridian —
+     and removing it changes the moat curve by at most 5.2 / 3.2 m/s
+     (correlation 1.0000). The azimuthal mean of the RADIAL component
+     cancels a uniform bias exactly, so the moat metric is immune.
+     Caveat to state: cancellation is exact only for a complete ring;
+     when sectors are rejected for contamination the cancellation is
+     partial, which is another reason to report `n_sect_rejected`.
+
+**Reference geometry for the annulus.** Verma & Denker 2018 find
+r_moat/r_spot = 2.3, 1.6, 1.5 for small, medium and large spots, i.e.
+the moat radius does NOT scale linearly with spot radius ("correlation
+of flow properties with size is tenuous, if at all present"). That is
+independent support for our FIXED annulus over the spot-radius-scaled
+one (section F). Their LCT settings for comparison: 6.4 Mm window,
+FWHM 2 Mm, dt = 90 s, dT = 12 h averaging; moat boundary from a
+100 m/s threshold on the radial velocity — note they threshold the
+radial velocity to DEFINE the moat, which is close to our onset rule.
