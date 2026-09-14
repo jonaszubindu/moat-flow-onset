@@ -157,7 +157,10 @@ python scripts/quicklook.py AR11490 --series hmi.Ic_45s
 python scripts/run_flct.py AR11490 --series hmi.Ic_45s --window 3600 --sigma 5
 
 # 5. The science product: tracked penumbral area vs moat outflow
-#    (both tracers), -> onset_series.npz + onset_comparison.png
+#    (both tracers), -> onset_series.npz + onset_comparison.png.
+#    Also runs the verification for this event: moat_audit.mp4 and the
+#    FLCT checks (divergence, Doppler if the V cube exists, shrinking-Sun)
+#    -> flct_*.png + verify_flct.json
 python scripts/onset_analysis.py AR11490
 
 # 6. MANDATORY verification of that curve: shows frame by frame which
@@ -181,7 +184,7 @@ Optional, per event or once:
 
 ```bash
 python scripts/vet_batch.py                    # SHARP + quicklook for every event
-python scripts/verify_flct.py AR11490 --lon0 -35 --lat -13.1   # Doppler + divergence checks
+python scripts/verify_flct.py AR11490           # re-run only the FLCT checks
 python scripts/moat_movie.py AR11490           # slow explanatory tracking movie
 ```
 

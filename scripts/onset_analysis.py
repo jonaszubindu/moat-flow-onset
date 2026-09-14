@@ -6,6 +6,10 @@ Produces  data/<event>/onset_series.npz  and
 with the tracked leading spot's penumbral/umbral areas, the granulation
 moat-outflow curve, the MMF curve (if magnetogram flows exist), the
 literature formation interval band, and provisional onset readouts.
+Also writes, per event, the verification products that go with the
+curve: quicklook/moat_audit.mp4 (what enters the average) and the FLCT
+checks flct_divergence.png, flct_doppler_check.png (if the Dopplergram
+cube exists), flct_shrinking_sun.png + verify_flct.json.
 
 Usage: python scripts/onset_analysis.py AR11184 [--seed-h 116] [--vthresh 0.15]
 """
@@ -22,6 +26,7 @@ import numpy as np
 
 from moatflow.analysis.audit import audit_series, render_audit_movie
 from moatflow.analysis.spottrack import PX_MM, track_spot
+from moatflow.analysis.verify import run_verification
 from moatflow.catalog import load_events
 from moatflow.config import event_dir, load_config
 from moatflow.cubes import load_cube
@@ -77,6 +82,9 @@ def main():
                     help="fixed: r_spot+1Mm, 6Mm wide; scaled: 1.2-2.5 r_spot")
     ap.add_argument("--no-audit", action="store_true",
                     help="skip the verification movie (still writes its .npz)")
+    ap.add_argument("--no-verify", action="store_true",
+                    help="skip the FLCT checks (divergence, Doppler, "
+                         "shrinking-Sun)")
     args = ap.parse_args()
 
     cfg = load_config()
@@ -228,6 +236,32 @@ def main():
     print(f"literature formation interval: {pf0:.1f} - {pf1:.1f} h")
     print(f"provisional moat onsets: granulation {on_g:.1f} h, MMF {on_m:.1f} h")
     print(f"plateau (last 20 h): gran {np.nanmean(sm(v_gran)[t_h > t_h[-1]-20]):.2f} km/s")
+
+    if not args.no_verify:
+        print("verification (divergence / Doppler / shrinking-Sun):")
+        try:
+            res = run_verification(out, args.event_id, event, frames, tr,
+                                   VX, VY, t_mid, t0, aud, seed_h, (pf0, pf1))
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            print(f"  verification failed ({e}); the onset products above "
+                  "are unaffected")
+            res = None
+        if res:
+            dv, dp, ss = res["divergence"], res["doppler"], res["shrinking_sun"]
+            print(f"  divergence   : moat annulus "
+                  f"{dv['annulus_mean_div_1e-5_per_s']:+.2f}e-5 /s, "
+                  f"{dv['annulus_frac_diverging']*100:.0f}% of it diverging "
+                  f"(t = {dv['epoch_h']:.0f} h)")
+            if dp:
+                print(f"  Doppler      : r = {dp['r']:.2f}, FLCT/Doppler "
+                      f"amplitude {dp['flct_over_doppler']:.2f} "
+                      f"(t = {dp['epoch_h']:.0f} h, lon {dp['lon_deg']:+.0f} deg)")
+            print(f"  shrinking-Sun: patch-mean drift "
+                  f"{ss['patch_mean_vx_drift_m_s']:+.0f} m/s across the window; "
+                  f"moat curve shifts <= {ss['max_curve_shift_m_s']:.1f} m/s")
+            print(f"  -> {out / 'quicklook' / 'verify_flct.json'}")
 
 
 if __name__ == "__main__":

@@ -152,10 +152,12 @@ work quotes correlation 0.99 with amplitudes a factor 1.8 low.
   -> We have not done this. It is the one class of test we lack. It
      matters for quoting absolute moat speeds, NOT for onset timing.
      Cite the published factor and state that our speeds are lower
-     limits; our Doppler amplitude ratio ~0.5 is consistent with it.
+     limits; our measured FLCT/Doppler amplitude ratio (0.33 on AR11490,
+     verify_flct.json) is consistent with it.
 
 **2. Cross-check against an independent observable.**
-  - Doppler: we do this (r = 0.95, section in RESULTS.md).
+  - Doppler: we do this (AR11490: r = 0.89, FLCT/Doppler amplitude
+    0.33 — automated per event since 2026-09-14).
   - Helioseismology: Roudier et al. 2018 (A&A 611, A92) compare granule
     tracking against time-distance helioseismology over 30 days and
     recover differential rotation, meridional circulation and torsional
@@ -199,3 +201,17 @@ one (section F). Their LCT settings for comparison: 6.4 Mm window,
 FWHM 2 Mm, dt = 90 s, dT = 12 h averaging; moat boundary from a
 100 m/s threshold on the radial velocity — note they threshold the
 radial velocity to DEFINE the moat, which is close to our onset rule.
+
+**Update 2026-09-14 — verification is automated.** `onset_analysis.py`
+now runs all three FLCT checks for every event (module
+`moatflow.analysis.verify`; `--no-verify` to skip) and writes
+`quicklook/verify_flct.json`. The AR's position comes from the catalog
+and the epochs from the event's own window, replacing the hand-typed
+`--lon0/--lat/--t-quiet/--t-doppler` (tuned to AR11490 and silently
+wrong on shorter windows). The Doppler check was also made more exact:
+catalog-derived longitude (+20 deg at the chosen epoch, previously
+guessed +13), full LOS projection including B0, spot filled in before
+the background smoothing, and the contamination-masked annulus. AR11490
+result moved from r = 0.95 / ratio "~0.5" (eyeballed) to r = 0.89 /
+ratio 0.33 (fitted) — still strong agreement, and 0.33 sits exactly at
+the "up to a factor three" underestimation of Verma et al. 2013.
