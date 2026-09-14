@@ -76,8 +76,11 @@ def main():
 
     summary_figure(cube, times_s / 3600, ql / f"{tag}_summary.png",
                    segment=segment, title=f"{args.event_id} {tag}")
-    save_movie(cube, t_iso, ql / f"{tag}.mp4", segment=segment,
-               title=args.event_id)
+    try:
+        save_movie(cube, t_iso, ql / f"{tag}.mp4", segment=segment,
+                   title=args.event_id)
+    except Exception as e:          # ffmpeg missing on clusters
+        print(f"  movie skipped ({e}); cube and figures are written")
     print(f"  quicklook products in {ql}")
 
 
