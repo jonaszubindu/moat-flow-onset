@@ -19,11 +19,37 @@ import drms
 
 from .sharps import jsoc_time
 
+# JSOC's export manager occasionally refuses to create export records
+# while the rest of JSOC is fine (keyword queries work, and so does the
+# url_quick/as-is path that serves already-online data without a record).
+# Every chunk then fails identically, so the run should stop rather than
+# burn through the whole window. Known JSOC-side issue, not drms:
+# https://github.com/sunpy/drms/issues/56
+EXPORT_REFUSED_MARKERS = ("export control record", "export-request hash",
+                          "status=4")
+EXPORT_REFUSED_ATTEMPTS = 2
+EXPORT_REFUSED_WAIT_S = 300
+
 SERIES_SEGMENTS = {
     "hmi.Ic_45s": "continuum",
     "hmi.M_45s": "magnetogram",
     "hmi.V_45s": "Dopplergram",
 }
+
+
+def _export_refused(err) -> bool:
+    m = str(err).lower()
+    return any(k in m for k in EXPORT_REFUSED_MARKERS)
+
+
+def _refused_message(n_done, n_total, series):
+    return (
+        f"\nJSOC is refusing to create new export records ({series}).\n"
+        "  This is server-side, not your setup: plain keyword queries still\n"
+        "  work and the same request is refused from other machines too.\n"
+        f"  {n_done} of {n_total} chunks are already finished and are kept.\n"
+        "  Re-run the same command when JSOC recovers and it resumes there.\n"
+        "  Check whether it has: python scripts/jsoc_status.py")
 
 
 def _parse(t: str) -> datetime:
@@ -155,7 +181,12 @@ def download_patches(event: dict, jsoc_email: str, out_dir: Path,
             except Exception as e:
                 print(f"  chunk {c0:%Y-%m-%dT%H:%M} attempt {attempt} "
                       f"failed: {e}")
-                if attempt == retries:
+                if _export_refused(e):
+                    if attempt >= EXPORT_REFUSED_ATTEMPTS:
+                        raise SystemExit(
+                            _refused_message(n_done, len(chunks), series))
+                    time.sleep(max(retry_wait_s, EXPORT_REFUSED_WAIT_S))
+                elif attempt == retries:
                     failed.append(f"{c0:%Y-%m-%dT%H:%M}")
                 else:
                     time.sleep(retry_wait_s)

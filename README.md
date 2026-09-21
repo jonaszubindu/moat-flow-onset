@@ -135,6 +135,40 @@ Four environment gotchas that are not about paths:
    data, times and the reference WCS) — keep them only if per-frame WCS
    is needed, e.g. for the Doppler deprojection.
 
+## When downloads fail: is it JSOC or us?
+
+The 45 s cutouts need JSOC's **export manager**, because `im_patch`
+processing runs server-side. That component sometimes refuses new
+requests with
+
+```
+Cant create new export control record [status=4]
+```
+
+while the rest of JSOC is perfectly healthy — keyword queries work, and
+so does the `url_quick`/`as-is` path that serves already-online data
+without creating a record. It is a known JSOC-side issue, not a bug in
+`drms` or in this pipeline (sunpy/drms issue 56 documents the sibling
+message "Cant save new export-request hash"). There is no workaround:
+tracked cutouts cannot be produced without the processing path.
+
+Check whether it is accepting requests:
+
+```bash
+python scripts/jsoc_status.py
+```
+
+It exits 0 when accepting, 1 when refusing, 2 when JSOC is unreachable,
+so a download can simply wait for it:
+
+```bash
+until python scripts/jsoc_status.py; do sleep 600; done && python scripts/download_event.py AR11630 --patches --series hmi.Ic_45s
+```
+
+When a download hits this, it stops after the second attempt rather than
+retrying every remaining chunk. Completed chunks keep their markers, so
+re-running the same command later resumes where it stopped.
+
 ## Workflow
 
 Per event, in order:
