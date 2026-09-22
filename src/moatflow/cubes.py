@@ -102,7 +102,12 @@ def build_cube(fits_dir: Path, out_file: Path,
                     t = hdu.header.get("T_OBS") or hdu.header.get("DATE-OBS")
                     t_obs[i] = t
             except Exception as e:
-                raise RuntimeError(f"unreadable FITS {f}: {e}") from e
+                raise RuntimeError(
+                    f"unreadable FITS {f}: {e}\n"
+                    "  Probably a truncated download. Repair with:\n"
+                    "    python scripts/verify_downloads.py <EVENT> --fix\n"
+                    "  then re-run the download command to refetch that "
+                    "chunk.") from e
         for k, v in header.items():
             if k and not isinstance(v, fits.header._HeaderCommentaryCards):
                 try:

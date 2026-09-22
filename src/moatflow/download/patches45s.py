@@ -17,6 +17,7 @@ from pathlib import Path
 
 import drms
 
+from .integrity import bad_fits
 from .sharps import jsoc_time
 
 # JSOC's export manager occasionally refuses to create export records
@@ -175,6 +176,14 @@ def download_patches(event: dict, jsoc_email: str, out_dir: Path,
                 if len(got) < len(req.urls):
                     raise RuntimeError(
                         f"only {len(got)}/{len(req.urls)} files downloaded")
+                # counting files is not enough: a transfer cut mid-file
+                # still counts as downloaded, and the truncation only
+                # surfaces later when the cube is built
+                damaged = bad_fits(got)
+                if damaged:
+                    raise RuntimeError(
+                        f"{len(damaged)} of {len(got)} files arrived "
+                        f"truncated (e.g. {Path(damaged[0]).name})")
                 downloaded += got
                 marker.touch()
                 break
