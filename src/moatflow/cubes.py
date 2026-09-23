@@ -83,7 +83,14 @@ def build_cube(fits_dir: Path, out_file: Path,
         hdu = _first_image_hdu(hdul)
         shape, header = hdu.data.shape, hdu.header
 
-    with h5py.File(out_file, "w") as h5:
+    # Build into a .partial file and rename only on success: a crash
+    # (truncated FITS, full disk, Ctrl-C) otherwise leaves a half-filled
+    # cube behind that looks valid to everything downstream, and its
+    # unwritten frames carry empty timestamps.
+    out_file = Path(out_file)
+    tmp = out_file.with_name(out_file.name + ".partial")
+    try:
+      with h5py.File(tmp, "w") as h5:
         data = h5.create_dataset("data", shape=(len(files), *shape),
                                  dtype="f4", chunks=(1, *shape))
         t_obs = h5.create_dataset("t_obs", shape=(len(files),),
@@ -100,6 +107,9 @@ def build_cube(fits_dir: Path, out_file: Path,
                             "frame not tracked/cropped consistently?")
                     data[i] = hdu.data.astype("f4")
                     t = hdu.header.get("T_OBS") or hdu.header.get("DATE-OBS")
+                    if not t or not str(t).strip():
+                        raise ValueError("header has neither T_OBS nor "
+                                         "DATE-OBS")
                     t_obs[i] = t
             except Exception as e:
                 raise RuntimeError(
@@ -114,8 +124,31 @@ def build_cube(fits_dir: Path, out_file: Path,
                     h5.attrs[k] = v
                 except TypeError:
                     pass
+      tmp.replace(out_file)
+    except BaseException:
+        tmp.unlink(missing_ok=True)
+        raise
     print(f"Wrote {out_file}: {len(files)} frames of {shape}")
     return out_file
+
+
+def cube_ok(path) -> bool:
+    """True if a cube is complete: every frame has a timestamp.
+
+    Cubes written before the build became atomic can be half-filled, and
+    a half-filled one is indistinguishable from a good one by name alone.
+    """
+    try:
+        with h5py.File(path, "r") as h5:
+            if "data" not in h5 or "t_obs" not in h5:
+                return False
+            t = h5["t_obs"][:]
+            if len(t) == 0 or len(t) != h5["data"].shape[0]:
+                return False
+            dec = lambda x: x.decode() if isinstance(x, bytes) else x
+            return all(dec(x).strip() for x in t)
+    except Exception:
+        return False
 
 
 def build_event_cube(event_dir: Path, series: str, segment: str,
@@ -128,7 +161,11 @@ def build_event_cube(event_dir: Path, series: str, segment: str,
     """
     cube_file = event_dir / f"cube_{series}_{segment}.h5"
     if cube_file.exists():
-        return cube_file
+        if cube_ok(cube_file):
+            return cube_file
+        print(f"existing {cube_file.name} is incomplete (interrupted build "
+              "by an older version?) — rebuilding")
+        cube_file.unlink()
     pattern = f"*.{segment}.fits"
     exclude = None
     if series.startswith("hmi.") and email:
