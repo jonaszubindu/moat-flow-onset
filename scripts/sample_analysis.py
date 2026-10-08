@@ -150,7 +150,8 @@ def report(rows, missing):
     print(hdr)
     print("-" * len(hdr))
     for r in rows:
-        lit = f"{fmt(r['lit_start_h'],0)}-{fmt(r['lit_end_h'],0)}"
+        lit = f"{fmt(r['lit_start_h'],0)}-" + (
+            fmt(r['lit_end_h'], 0) if np.isfinite(r['lit_end_h']) else "?")
         print(f"{r['event']:8s} {'yes' if r['used'] else 'NO':4s} {lit:>11s} "
               f"{fmt(r['t_pen_h']):>6s} {fmt(r['t_pen_first_departure_h']):>6s} "
               f"{fmt(r['t_moat_h']):>6s} {fmt(r['t_mmf_h']):>6s} "
