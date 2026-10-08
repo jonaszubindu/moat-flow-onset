@@ -25,6 +25,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from moatflow.analysis.audit import audit_series, render_audit_movie
+from moatflow.analysis.onsets import (FRACTION, analyse,
+                                      first_persistent, smooth)
 from moatflow.analysis.spottrack import PX_MM, track_spot
 from moatflow.analysis.verify import run_verification
 from moatflow.catalog import load_events
@@ -33,33 +35,6 @@ from moatflow.cubes import load_cube
 from moatflow.viz import parse_datetimes, parse_times
 
 GAP_MM, WIDTH_MM = 1.0, 6.0
-
-
-def moat_curve(vx_all, vy_all, tr, shape):
-    yy, xx = np.mgrid[0:shape[0], 0:shape[1]]
-    v = np.full(len(vx_all), np.nan)
-    for k in range(len(vx_all)):
-        if not tr["valid"][k]:
-            continue
-        cy, cx = tr["center"][k]
-        rr = np.hypot(xx - cx, yy - cy)
-        r0 = tr["r_spot_px"][k] + GAP_MM / PX_MM
-        sel = (rr >= r0) & (rr < r0 + WIDTH_MM / PX_MM)
-        with np.errstate(invalid="ignore"):
-            vr = ((vx_all[k] * (xx - cx) + vy_all[k] * (yy - cy))
-                  / np.where(rr > 0, rr, np.nan))
-        good = sel & np.isfinite(vr)
-        if good.sum() > 30:
-            v[k] = np.nanmean(vr[good])
-    return v
-
-
-def onset(t_h, v, thresh, persist=3):
-    ok = np.nan_to_num(v) > thresh
-    for i in range(len(ok) - persist + 1):
-        if ok[i:i + persist].all():
-            return float(t_h[i])
-    return np.nan
 
 
 def main():
@@ -189,18 +164,25 @@ def main():
         except Exception as e:           # ffmpeg missing on clusters
             print(f"audit movie skipped ({e}); numbers are in onset_series.npz")
 
-    kern = np.ones(3) / 3
-    sm = lambda v: np.convolve(np.nan_to_num(v), kern, "same")
-    plateau = np.nanmean(sm(v_gran)[t_h > t_h[-1] - 20])
+    # Onsets use the same rule as scripts/sample_analysis.py (module
+    # moatflow.analysis.onsets), so this printout equals the final table.
+    sm = smooth
+    relative = args.vthresh_mode == "relative"
     frac = args.vthresh if args.vthresh is not None else \
-        (0.4 if args.vthresh_mode == "relative" else 0.15)
-    if args.vthresh_mode == "relative":
-        thr = frac * plateau
-        print(f"onset threshold: {frac:.2f} x plateau({plateau:.2f}) "
-              f"= {thr:.3f} km/s")
+        (FRACTION if relative else 0.15)
+    res_on = analyse(np.load(out / "onset_series.npz", allow_pickle=False),
+                     fraction=frac if relative else FRACTION)
+    if relative:
+        thr = res_on["_curves"]["moat"]["thr"]
+        print(f"onset rule: {frac:.0%} of the way to the mature level "
+              f"(moat 0 -> {res_on['moat_mature_km_s']:.2f} km/s, "
+              f"threshold {thr:.3f} km/s; penumbra "
+              f"{res_on['pen_baseline_Mm2']:.0f} -> "
+              f"{res_on['pen_mature_Mm2']:.0f} Mm^2)")
     else:
         thr = frac
-        print(f"onset threshold: {thr:.3f} km/s (absolute)")
+        print(f"onset threshold: {thr:.3f} km/s (absolute; the sample "
+              "analysis uses the relative rule)")
 
     fig, ax1 = plt.subplots(figsize=(11, 5.4))
     ax1.plot(t_h, tr["area_penumbra"], "o-", ms=3, color="tab:orange",
@@ -231,11 +213,25 @@ def main():
     fig.tight_layout()
     fig.savefig(out / "quicklook" / "onset_comparison.png", dpi=140)
 
-    on_g = onset(t_h, sm(v_gran), thr)
-    on_m = onset(t_h, sm(v_mmf), thr) if v_mmf is not None else np.nan
     print(f"literature formation interval: {pf0:.1f} - {pf1:.1f} h")
-    print(f"provisional moat onsets: granulation {on_g:.1f} h, MMF {on_m:.1f} h")
-    print(f"plateau (last 20 h): gran {np.nanmean(sm(v_gran)[t_h > t_h[-1]-20]):.2f} km/s")
+    if relative:
+        print(f"penumbra onset {res_on['t_pen_h']:.1f} h (first departure "
+              f"{res_on['t_pen_first_departure_h']:.1f} h); moat onset "
+              f"{res_on['t_moat_h']:.1f} h (MMF {res_on['t_mmf_h']:.1f} h)")
+        print(f"lag moat - penumbra {res_on['lag_moat_h']:+.1f} h; threshold "
+              "sweep " + ", ".join(
+                  f"{k[5:7]}% {res_on[k]:+.1f}" for k in res_on
+                  if k.startswith("lag_f")))
+        for flag in res_on["blocking"]:
+            print(f"  BLOCKING: {flag}")
+        for flag in res_on["warnings"]:
+            print(f"  warning : {flag}")
+    else:
+        on_g = first_persistent(t_h, sm(v_gran), thr)
+        on_m = first_persistent(t_h, sm(v_mmf), thr) \
+            if v_mmf is not None else np.nan
+        print(f"moat onsets (absolute threshold): granulation {on_g:.1f} h, "
+              f"MMF {on_m:.1f} h")
 
     if not args.no_verify:
         print("verification (divergence / Doppler / shrinking-Sun):")

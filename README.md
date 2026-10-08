@@ -222,6 +222,35 @@ python scripts/verify_flct.py AR11490           # re-run only the FLCT checks
 python scripts/moat_movie.py AR11490           # slow explanatory tracking movie
 ```
 
+## The sample result
+
+Once every event has its `onset_series.npz`:
+
+```bash
+python scripts/inventory.py              # what exists, per event
+python scripts/sample_analysis.py        # -> <data_root>/sample_results/
+```
+
+`sample_analysis.py` applies one onset rule to both curves
+(`moatflow.analysis.onsets`): each curve is smoothed over 3 h, the
+threshold is 40% of the way from "none" to its mature level (90th
+percentile), and the onset is the first of 3 consecutive hours above it.
+"None" is the pore-phase baseline for the penumbral area — the threshold
+counts the grey rim of a pore as penumbra — and 0 km/s for the moat,
+because its pre-onset inflow is real. It writes `onsets.csv`,
+`summary.txt`, `events_grid.png` (every pick, to check by eye),
+`superposed.png` (events aligned on the penumbra onset) and `lags.png`
+(the lag for threshold fractions 25/40/60%).
+
+An event is excluded automatically when its lag is not measurable (no
+onset, no pore phase, onset inside the 8 h baseline window). To override
+in either direction, add to its entry in `catalog/events.yaml`:
+
+```yaml
+  onset_use: false          # or true, to force it in despite flags
+  onset_note: why
+```
+
 `scripts/example_m45s_sharp_fov.py` is a standalone (moatflow-free)
 example of the JSOC `im_patch` recipe, useful for handing the download
 method to someone else.

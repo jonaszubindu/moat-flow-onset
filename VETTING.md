@@ -215,3 +215,47 @@ the background smoothing, and the contamination-masked annulus. AR11490
 result moved from r = 0.95 / ratio "~0.5" (eyeballed) to r = 0.89 /
 ratio 0.33 (fitted) — still strong agreement, and 0.33 sits exactly at
 the "up to a factor three" underestimation of Verma et al. 2013.
+
+## I. Onset rule for BOTH curves, and the first sample numbers (2026-10-08)
+
+The lag (moat onset - penumbra onset) is the result, so both onsets now
+use identical machinery (`moatflow.analysis.onsets`, used by
+`onset_analysis.py` and `sample_analysis.py`). A 3-sigma departure rule
+on the area paired with the moat's fraction-of-plateau rule was
+considered and rejected: two different kinds of criterion bias the lag
+by construction.
+
+Per curve: 3 h NaN-aware smoothing; zero = pore-phase baseline (median of
+the first 8 tracked h) for the area, 0 km/s for the moat; mature level =
+90th percentile of the smoothed curve; threshold = zero + 0.4 (mature -
+zero); onset = first of 3 consecutive hours above. The penumbra "first
+departure" (baseline + max(3 sigma, 20 Mm^2)) is reported but not used.
+
+Change against section F: the moat "plateau" was the mean of the last
+20 h; it is now the 90th percentile, for both curves alike. The last-20-h
+mean is pulled down by late decay near the limb (AR11184 moat) or by
+tracking drift of the area (AR11210 area: peak 138, last-20-h mean 55).
+Moat onsets move by at most 2 h: AR11490 43.5 -> 43.5, AR11184
+53.5 -> 55.5, AR11210 45.5 -> 47.5 h. AR11184's ring SNR becomes 1.6
+(section G's 0.5 used the declining last 20 h), so it no longer counts as
+weak; its 62 % peak contamination is still flagged.
+
+First numbers (local data, 3 events):
+
+| event   | penumbra | moat   | lag    | lag at f = 25/40/60 % | used |
+|---------|----------|--------|--------|------------------------|------|
+| AR11490 | 40.5 h   | 43.5 h | +3.0 h | +4 / +3 / +8           | yes  |
+| AR11184 | 48.5 h   | 55.5 h | +7.0 h | +9 / +7 / +11          | yes  |
+| AR11210 | 32.5 h   | 47.5 h | +15 h  | +13 / +15 / +5         | no: onset inside baseline window |
+
+Shape, visible in `superposed.png`: the moat curve starts rising from its
+inflow minimum BEFORE the penumbra onset, crosses zero about at it, and
+reaches 40 % of its mature level hours AFTER. So the converging inflow
+decays before the penumbra forms; the outflow establishes after it.
+
+- [ ] AR11210: its area rises in two steps (~31 h and ~43 h). Check the
+      audit movie at t ~ 31 h: if the first step is the tracked mask
+      absorbing a neighbouring pore, the onset is ~44 h and the lag ~ +3.5 h.
+- [ ] Decide on events whose tracking starts after the literature
+      formation start (AR11150, AR11466, AR11512) once their curves exist;
+      set `onset_use` in the catalog accordingly.
