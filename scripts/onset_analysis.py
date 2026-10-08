@@ -25,7 +25,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from moatflow.analysis.audit import audit_series, render_audit_movie
-from moatflow.analysis.onsets import (FRACTION, analyse,
+from moatflow.analysis.onsets import (FRACTION, FRACTION_SWEEP, analyse,
                                       first_persistent, smooth)
 from moatflow.analysis.spottrack import PX_MM, seed_epoch, track_spot
 from moatflow.analysis.verify import run_verification
@@ -212,15 +212,19 @@ def main():
     fig.tight_layout()
     fig.savefig(out / "quicklook" / "onset_comparison.png", dpi=140)
 
-    print(f"literature formation interval: {pf0:.1f} - {pf1:.1f} h")
+    print("literature formation interval: "
+          + (f"{pf0:.1f} - {pf1:.1f} h" if np.isfinite(pf1)
+             else f"starts {pf0:.1f} h (end unknown)"))
     if relative:
         print(f"penumbra onset {res_on['t_pen_h']:.1f} h (first departure "
               f"{res_on['t_pen_first_departure_h']:.1f} h); moat onset "
               f"{res_on['t_moat_h']:.1f} h (MMF {res_on['t_mmf_h']:.1f} h)")
         print(f"lag moat - penumbra {res_on['lag_moat_h']:+.1f} h; threshold "
               "sweep " + ", ".join(
-                  f"{k[5:7]}% {res_on[k]:+.1f}" for k in res_on
-                  if k.startswith("lag_f")))
+                  f"{f * 100:.0f}% "
+                  f"{res_on[f'lag_f{int(round(f * 100)):02d}_h']:+.1f}"
+                  for f in FRACTION_SWEEP)
+              + f"; first appearance {res_on['lag_first_h']:+.1f} h")
         for flag in res_on["blocking"]:
             print(f"  BLOCKING: {flag}")
         for flag in res_on["warnings"]:
