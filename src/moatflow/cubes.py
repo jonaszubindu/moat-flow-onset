@@ -50,9 +50,27 @@ def jsoc_bad_trecs(series: str, files: list, email: str) -> set[str]:
     # into NaN. Only the severe top-nibble flags (0xF0000000: missing /
     # unusable image, eclipse, calibration) disqualify a record — many
     # good 45 s records carry benign informational bits like 0x00010000.
-    k = drms.Client(email=email).query(
-        f"{series}[{fmt(t0)}-{fmt(t1)}@45s]", key="T_REC, QUALITY",
-        convert_numeric=False)
+    # Saved next to the FITS: a rebuild (or a raw_from copy such as
+    # AR11490dp) then needs no JSOC round trip; retried on timeouts.
+    import json
+    import time
+    cache = Path(files[0]).parent / f".bad_trecs_{series}.json"
+    if cache.exists():
+        c = json.loads(cache.read_text())
+        if c.get("span") == [t0, t1]:
+            return set(c["bad"])
+    for attempt in range(1, 4):
+        try:
+            k = drms.Client(email=email).query(
+                f"{series}[{fmt(t0)}-{fmt(t1)}@45s]", key="T_REC, QUALITY",
+                convert_numeric=False)
+            break
+        except Exception as e:
+            if attempt == 3:
+                raise
+            print(f"  QUALITY query attempt {attempt}/3 failed "
+                  f"({type(e).__name__}); retrying in 60 s")
+            time.sleep(60)
 
     def severe(q: str) -> bool:
         q = str(q).strip()
@@ -60,7 +78,12 @@ def jsoc_bad_trecs(series: str, files: list, email: str) -> set[str]:
             return bool(int(q, 16) & 0xF0000000)
         except ValueError:
             return True     # MISSING / unparsable -> treat as bad
-    return {_trec_digits(t) for t, q in zip(k.T_REC, k.QUALITY) if severe(q)}
+    bad = {_trec_digits(t) for t, q in zip(k.T_REC, k.QUALITY) if severe(q)}
+    try:
+        cache.write_text(json.dumps({"span": [t0, t1], "bad": sorted(bad)}))
+    except OSError:
+        pass
+    return bad
 
 
 def build_cube(fits_dir: Path, out_file: Path,
