@@ -107,6 +107,9 @@ def render(event_id, args, cfg):
     if np.isfinite(l0) and np.isfinite(l1) and l1 > lo and l0 < hi:
         axC.axvspan(max(l0, lo), min(l1, hi), alpha=0.12, color="green",
                     label="literature formation")
+    elif np.isfinite(l0) and not np.isfinite(l1) and lo <= l0 <= hi:
+        axC.axvline(l0, color="green", lw=1.2, ls="-.",
+                    label="literature formation start")
     for key, col, lab in (("t_pen_h", "tab:orange", "penumbra onset"),
                           ("t_moat_h", "tab:blue", "moat onset")):
         if np.isfinite(on.get(key, np.nan)):

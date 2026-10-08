@@ -51,15 +51,17 @@ events:
 - id: AR11243
   noaa_ar: 11243
   harpnum: 685
-  t_penumbra_start: 2012-12-09T00:00
-  t_penumbra_end: 2012-12-10T00:00
+  t_penumbra_start: 2011-06-30T20:00
+  t_penumbra_end: null
   t_start: 2011.06.30_17:00:00_TAI
   t_end: 2011.07.06_15:24:00_TAI
   refs: *id001
-  notes: 'Literature dates checked against the PDF (2026-10-08) and kept as given.
-    They are the same Dec 2012 dates as AR 11630 and fall outside the 2011 data
-    window, so no literature band is drawn for this event; its onsets come from our
-    own curves only.
+  notes: 'Table 1 of the paper prints 2012 Dec 09-10 for this row, the same times
+    as AR 11630: a copy error in the paper (NOAA 11243 crossed the disk in Jun-Jul
+    2011; Dec 2012 regions are numbered ~11630). t_penumbra_start is inferred from
+    the Table 1 position (-540, 230) arcsec, which HARP 685 passes on 2011-06-30
+    ~20:00 UT (+-2 h; the same check reproduces AR11150, AR11242, AR11610 to 1-2
+    h). The end time cannot be recovered and is left empty.
 
     '
   t_ref: 2011.07.03_15:00:00_TAI

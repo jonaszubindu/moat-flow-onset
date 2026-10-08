@@ -9,10 +9,18 @@ sweep. Products land in `data/<event>/quicklook/`.
 Murabito et al. 2018, ApJ 855, 58 — doi:10.3847/1538-4357/aaac7c,
 Table 1. The catalog dates were machine-extracted from the IOP HTML.
 
-- [ ] **AR11243 — dates confirmed wrong** (extraction gave it AR11630's
-      Dec 2012 row; real disk passage July 2011). Enter the true
-      t_penumbra_start/end in `catalog/events.yaml`, set its
-      t_start/t_end to `null`, re-run `scripts/resolve_event.py AR11243`.
+- [x] **AR11243 — the error is in the paper**, not the extraction: the
+      PDF's Table 1 prints 2012 Dec 09 00:00 – Dec 10 00:00 for this row,
+      identical to AR 11630, while NOAA 11243 crossed the disk in Jun–Jul
+      2011 (Dec 2012 regions are numbered ~11630). The Table 1 positions
+      are the positions at the start time: rotating each HARP's catalog
+      reference point reproduces AR11150 (−588,−275 vs −610,−280),
+      AR11242 (89,240 vs 100,240) and AR11610 (−515,−424 vs −520,−440) to
+      1–2 h of rotation (AR11184: ~5 h). HARP 685 passes the AR11243
+      position (−540, 230) on **2011-06-30 ~20:00 UT ± 2 h**, which is
+      now `t_penumbra_start`; the end time cannot be recovered and is
+      empty. The downloaded window (2011-06-30 17:00 – 07-06 15:24 TAI,
+      the |lon| ≤ 40° passage) is unchanged and covers it.
 - [ ] Spot-check the other 11 rows' dates/positions against the PDF.
 
 ## B. Per-event eyeball pass (watch `sharp_cea_720s_continuum.mp4`)
@@ -269,7 +277,7 @@ below (kept here because the changes were made after looking at it):
 |---------|----------|-------|-------|----------------|--------|
 | AR11184 | 48.5     | 55.5  | +7    | +9 / +7 / +11  | used |
 | AR11210 | 32.5     | 47.5  | +15   | +13 / +15 / +5 | excluded: onset in baseline window |
-| AR11243 | 21.5     | 26.5  | +5    | -16 / +5 / +4  | used; catalog dates still wrong |
+| AR11243 | 21.5     | 26.5  | +5    | -16 / +5 / +4  | used; catalog dates then still Dec 2012 (fixed since, section A) |
 | AR11466 | 9.5      | 12.5  | +3    | +2 / +3 / -1   | excluded: no pore phase |
 | AR11490 | 40.5     | 43.5  | +3    | +4 / +3 / +8   | used |
 | AR11512 | 20.5     | 4.5   | -16   | -7 / -16 / -9  | used |

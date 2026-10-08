@@ -66,8 +66,9 @@ Seed events come from the penumbra-formation literature:
   Murabito et al. 2016, ApJ 825, 75 ([arXiv:1604.05610](https://arxiv.org/abs/1604.05610)).
 - Murabito et al. 2018, ApJ 855, 58 — sample of 12 β-type ARs from 2011–2012
   with observed penumbra formation; Table 1 is in `events.yaml`, extracted
-  from the IOP full text. **Verify against the PDF before production runs**
-  — AR 11243's row came out wrong (see `VETTING.md` section A).
+  from the IOP full text and checked against the PDF. AR 11243's row is
+  wrong in the paper itself (it repeats AR 11630's Dec 2012 times); its
+  start is inferred from the table position (see `VETTING.md` section A).
 - Review: Murabito et al. 2019 ([arXiv:1901.05207](https://arxiv.org/abs/1901.05207));
   onset study (pre-HMI benchmark AR 11024): García-Rivas et al. 2024
   ([arXiv:2403.18455](https://arxiv.org/abs/2403.18455)).

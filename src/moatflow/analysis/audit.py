@@ -187,13 +187,16 @@ def render_audit_movie(frames, tr, VX, VY, t_h, t_iso, aud, out_mp4,
             axTR.plot(t_h, aud["r1_mm"], "-", color="k", lw=1.0)
             if pf_lit is not None and np.isfinite(pf_lit[0]):
                 # bracket the interval without hiding the map underneath
-                a, b = pf_lit[0], min(pf_lit[1], t_h[-1])
-                for x in (a, b):
+                # start only (end unknown, e.g. AR11243): one line
+                a = pf_lit[0]
+                b = min(pf_lit[1], t_h[-1]) if np.isfinite(pf_lit[1]) else a
+                for x in {a, b}:
                     axTR.axvline(x, color="green", lw=1.4, ls="--")
                 axTR.plot([a, b], [RAD_MAX_MM * 0.965] * 2, color="green",
                           lw=5, solid_capstyle="butt", clip_on=False)
                 axTR.text((a + b) / 2, RAD_MAX_MM * 0.86,
-                          "literature penumbra formation", color="green",
+                          "literature penumbra formation" if b > a
+                          else "literature formation start", color="green",
                           ha="center", va="top", fontsize=7.5)
             axTR.axvline(t_h[k], color="lime", lw=1.3)
             axTR.set(ylabel="r [Mm]", ylim=(0, RAD_MAX_MM))
@@ -209,9 +212,13 @@ def render_audit_movie(frames, tr, VX, VY, t_h, t_iso, aud, out_mp4,
                        label="contamination masked (quoted)")
             axCur.axhline(0, color="k", lw=0.5)
             if pf_lit is not None and np.isfinite(pf_lit[0]):
-                axCur.axvspan(pf_lit[0], min(pf_lit[1], t_h[-1]),
-                              alpha=0.13, color="green",
-                              label="literature penumbra formation")
+                if np.isfinite(pf_lit[1]):
+                    axCur.axvspan(pf_lit[0], min(pf_lit[1], t_h[-1]),
+                                  alpha=0.13, color="green",
+                                  label="literature penumbra formation")
+                else:
+                    axCur.axvline(pf_lit[0], color="green", lw=1.4, ls="--",
+                                  label="literature formation start")
             axCur.axvline(t_h[k], color="crimson", lw=1.2)
             axCur.set(xlabel="hours since start", ylabel="v$_r$ [km/s]")
             axCur.legend(fontsize=7.5, loc="upper left")

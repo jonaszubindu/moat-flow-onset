@@ -227,6 +227,9 @@ def plot_grid(rows, path):
         if np.isfinite(lo) and np.isfinite(hi) and hi > t[0] and lo < t[-1]:
             ax.axvspan(max(lo, t[0]), min(hi, t[-1]), color="green",
                        alpha=0.10, label="literature formation")
+        elif np.isfinite(lo) and not np.isfinite(hi) and t[0] <= lo <= t[-1]:
+            ax.axvline(lo, color="green", lw=1.2, ls="-.",
+                       label="literature formation start")
         elif np.isfinite(lo):
             ax.text(0.98, 0.04, "literature interval outside the data",
                     transform=ax.transAxes, ha="right", fontsize=7,
