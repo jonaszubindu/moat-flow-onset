@@ -47,7 +47,9 @@ def track_spot(cube, idx_seed: int, r_max_mm: float = 14.0,
 
     Returns dict of arrays over frames: center (n,2), area_umbra,
     area_penumbra [Mm^2], r_spot_px, valid (False where the mask was
-    carried over from the previous frame because segmentation lost it).
+    carried over from the previous frame because segmentation lost it),
+    plus seed_idx -- the frame actually used as seed, which differs from
+    idx_seed when that frame has no umbra (seed_fallback = True).
     """
     seg_kwargs = seg_kwargs or {}
     n = len(cube)
@@ -57,7 +59,25 @@ def track_spot(cube, idx_seed: int, r_max_mm: float = 14.0,
            "r_spot_px": np.full(n, np.nan),
            "valid": np.zeros(n, bool)}
     masks = [None] * n
-    seed = _pick_seed(np.asarray(cube[idx_seed]), **seg_kwargs)
+    try:
+        seed = _pick_seed(np.asarray(cube[idx_seed]), **seg_kwargs)
+        fallback = False
+    except ValueError:
+        # No umbra at the requested epoch: the spot has not formed yet or
+        # has already decayed (AR11242 decays inside its window). Seed
+        # where the umbra is largest instead -- the least ambiguous epoch.
+        umbra_px = [segment_frame(np.asarray(f), **seg_kwargs)[0].sum()
+                    for f in cube]
+        best = int(np.argmax(umbra_px))
+        if umbra_px[best] == 0:
+            raise ValueError("no umbra in any frame: nothing to track")
+        print(f"  [track_spot] no umbra at the requested seed (frame "
+              f"{idx_seed}); seeding at frame {best}, where the umbra is "
+              "largest")
+        idx_seed, fallback = best, True
+        seed = _pick_seed(np.asarray(cube[idx_seed]), **seg_kwargs)
+    out["seed_idx"] = idx_seed
+    out["seed_fallback"] = fallback
 
     def step(i, prev_mask):
         u, p, lab, ncomp = _components(np.asarray(cube[i]), **seg_kwargs)
