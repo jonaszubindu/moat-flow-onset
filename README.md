@@ -201,6 +201,7 @@ python scripts/onset_analysis.py AR11490
 #    pixels enter the annulus average, the per-sector breakdown, and the
 #    radial profile -> moat_audit.mp4 + moat_audit.npz
 python scripts/moat_audit.py AR11490
+python scripts/moat_audit.py --all --skip-existing   # every event, only missing movies
 ```
 
 Step 6 is not optional. An azimuthal mean over an annulus can look like a
@@ -216,10 +217,17 @@ radiating outward** on the image.
 
 Optional, per event or once:
 
+`moat_audit`, `moat_movie` and `verify_flct` seed the spot where
+`onset_analysis` did (stored as `seed_h` in `onset_series.npz`), so every
+product of an event shows the same track. The two movie scripts take
+several event ids or `--all`; a failing event is reported at the end and
+the others still run.
+
 ```bash
 python scripts/vet_batch.py                    # SHARP + quicklook for every event
 python scripts/verify_flct.py AR11490           # re-run only the FLCT checks
 python scripts/moat_movie.py AR11490           # slow explanatory tracking movie
+python scripts/moat_movie.py --all             # ... for every event with cube + flows
 ```
 
 ## The sample result

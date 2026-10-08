@@ -56,9 +56,10 @@ events:
   t_start: 2011.06.30_17:00:00_TAI
   t_end: 2011.07.06_15:24:00_TAI
   refs: *id001
-  notes: 'SUSPECT extraction: table gave the same Dec 2012 dates as AR 11630, but
-    NOAA 11243 crossed the disk mid-2011. The resolver will warn if the interval misses
-    the HARP disk passage. Check the PDF.
+  notes: 'Literature dates checked against the PDF (2026-10-08) and kept as given.
+    They are the same Dec 2012 dates as AR 11630 and fall outside the 2011 data
+    window, so no literature band is drawn for this event; its onsets come from our
+    own curves only.
 
     '
   t_ref: 2011.07.03_15:00:00_TAI
@@ -128,6 +129,9 @@ events:
   t_end: 2012.11.12_06:00:00_TAI
   refs: *id001
   notes: Position (-520, -440) arcsec.
+  onset_use: false
+  onset_note: weak moat (ring SNR 0.7, plateau 0.08 km/s; drops back below threshold
+    within 12 h of its onset)
   t_ref: 2012.11.12_08:12:00_TAI
   lon_ref: 0.046253
   lat_ref: -23.097099

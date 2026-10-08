@@ -12,6 +12,8 @@ tracked center, so a transient bridge to a neighboring pore group does
 not double the area for one epoch.
 """
 
+from pathlib import Path
+
 import numpy as np
 from scipy import ndimage
 
@@ -39,6 +41,26 @@ def _pick_seed(frame, prefer_west=True, **seg_kwargs):
     useed = ulab == cand[int(np.argmax(xc))]
     cy, cx = ndimage.center_of_mass(useed)
     return lab == lab[int(round(cy)), int(round(cx))]
+
+
+def seed_epoch(t_h, pf_end=np.nan, override=None, npz_path=None):
+    """Tracking seed [h], the same in every script so all products of an
+    event show one track.
+
+    Priority: explicit override; the seed onset_analysis actually used
+    (stored as seed_h in onset_series.npz, after any fallback); otherwise
+    the default rule -- literature formation end + 8 h, when the spot is
+    mature and unambiguous, else 85 % into the window. Never in the last
+    2 h. track_spot still falls back if this epoch has no umbra.
+    """
+    if override is not None:
+        s = override
+    elif npz_path is not None and Path(npz_path).exists() and \
+            "seed_h" in (d := np.load(npz_path)).files:
+        return float(d["seed_h"])
+    else:
+        s = pf_end + 8 if np.isfinite(pf_end) else 0.85 * t_h[-1]
+    return min(s, t_h[-1] - 2)
 
 
 def track_spot(cube, idx_seed: int, r_max_mm: float = 14.0,

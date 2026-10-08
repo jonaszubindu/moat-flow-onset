@@ -27,7 +27,7 @@ import numpy as np
 from moatflow.analysis.audit import audit_series, render_audit_movie
 from moatflow.analysis.onsets import (FRACTION, analyse,
                                       first_persistent, smooth)
-from moatflow.analysis.spottrack import PX_MM, track_spot
+from moatflow.analysis.spottrack import PX_MM, seed_epoch, track_spot
 from moatflow.analysis.verify import run_verification
 from moatflow.catalog import load_events
 from moatflow.config import event_dir, load_config
@@ -110,9 +110,7 @@ def main():
         t_mid, VX, VY = f["t_mid_s"][:], f["vx"][:], f["vy"][:]
     t_h = t_mid / 3600
 
-    seed_h = args.seed_h if args.seed_h is not None else \
-        (pf1 + 8 if np.isfinite(pf1) else 0.85 * t_h[-1])
-    seed_h = min(seed_h, t_h[-1] - 2)
+    seed_h = seed_epoch(t_h, pf1, override=args.seed_h)
 
     epoch_idx = [int(np.argmin(np.abs(times_s - t))) for t in t_mid]
     frames = [np.asarray(cube[i]) for i in epoch_idx]
@@ -144,7 +142,7 @@ def main():
              sector_scatter=aud["sector_scatter"],
              n_sect_rejected=aud["n_sect_rejected"],
              annulus_mode=args.annulus,
-             valid=tr["valid"], pf_lit=(pf0, pf1))
+             valid=tr["valid"], pf_lit=(pf0, pf1), seed_h=seed_h)
 
     fc, sc = aud["frac_contaminated"], aud["sector_scatter"]
     d = aud["v_clean"] - aud["v_raw"]

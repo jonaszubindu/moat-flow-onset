@@ -18,7 +18,7 @@ import h5py
 import numpy as np
 
 from moatflow.analysis.audit import audit_series
-from moatflow.analysis.spottrack import track_spot
+from moatflow.analysis.spottrack import seed_epoch, track_spot
 from moatflow.analysis.verify import run_verification
 from moatflow.catalog import load_events
 from moatflow.config import event_dir, load_config
@@ -30,8 +30,8 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("event_id")
     ap.add_argument("--seed-h", type=float, default=None,
-                    help="tracking seed / divergence epoch [h]; default as "
-                         "onset_analysis: literature formation end + 8 h")
+                    help="tracking seed / divergence epoch [h]; default: "
+                         "the seed onset_analysis used")
     args = ap.parse_args()
 
     cfg = load_config()
@@ -49,9 +49,8 @@ def main():
             return np.nan
         return (datetime.fromisoformat(str(event[key])) - t0).total_seconds() / 3600
     pf = (lit_h("t_penumbra_start"), lit_h("t_penumbra_end"))
-    seed_h = args.seed_h if args.seed_h is not None else \
-        (pf[1] + 8 if np.isfinite(pf[1]) else 0.85 * t_h[-1])
-    seed_h = min(seed_h, t_h[-1] - 2)
+    seed_h = seed_epoch(t_h, pf[1], override=args.seed_h,
+                        npz_path=out / "onset_series.npz")
 
     idx = [int(np.argmin(np.abs(times_s - t))) for t in t_mid]
     frames = [np.asarray(cube[i]) for i in idx]
