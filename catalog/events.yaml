@@ -184,25 +184,28 @@ events:
   t_ref: 2022.05.18_20:48:00_TAI
   lon_ref: -0.012488
   lat_ref: -15.869201
-- id: AR11490dp
-  noaa_ar: 11490
-  harpnum: 1701
-  t_penumbra_start: 2012-05-28T14:00
-  t_penumbra_end: 2012-05-29T21:00
-  t_start: 2012.05.27_02:00:00_TAI
-  t_end: 2012.05.30_21:00:00_TAI
+- id: AR11554dp
+  noaa_ar: 11554
+  harpnum: 1962
+  t_penumbra_start: 2012-08-24T06:00
+  t_penumbra_end: 2012-08-25T21:00
+  t_start: 2012.08.22_23:36:00_TAI
+  t_end: 2012.08.26_21:00:00_TAI
   refs:
-  - Murabito et al. 2016, ApJ 825, 75 (arXiv:1604.05610)
-  notes: 'Validation of the deprojection path: AR11490 rebuilt from its own FITS
-    (raw_from) with deproject: true. Its onsets must agree with AR11490 within the
-    hourly resolution (the spot stays within ~30 deg of centre, so the correction
-    is small there). Not part of the sample.
+  - Murabito et al. 2018, ApJ 855, 58 (Table 1)
+  notes: 'Validation of the deprojection path: AR11554 rebuilt from its own FITS
+    (raw_from) with deproject: true. A clean event (+12 h, sweep +14/+12/+10, no
+    flags) that starts at lon -40 deg (mu ~0.73) and forms its penumbra at ~-21 deg
+    (mu ~0.90): its onsets must agree with AR11554 within the hourly resolution,
+    and the comparison shows how much the correction matters at the edge of the
+    standard cut. (AR11490 was the first choice, but its raw 45 s FITS are deleted
+    and its cubes keep only the first frame''s WCS.) Not part of the sample.
 
     '
-  raw_from: AR11490
+  raw_from: AR11554
   deproject: true
   onset_use: false
-  onset_note: deprojection validation copy of AR11490
-  t_ref: 2012.05.29_08:24:00_TAI
-  lon_ref: -0.002949
-  lat_ref: -13.077822
+  onset_note: deprojection validation copy of AR11554
+  t_ref: 2012.08.25_22:48:00_TAI
+  lon_ref: -0.016225
+  lat_ref: 16.138474

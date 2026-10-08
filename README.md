@@ -40,8 +40,8 @@ pattern at lon −56°: true area and true surface shift recovered, where
 the CCD shows 53 % and 55 %; geometry agrees with sunpy); on AR11490 the
 deprojected frame matches the SHARP CEA spot areas to 2–3 %. The Doppler
 cross-check is skipped for deprojected cubes (its LOS projection assumes
-the CCD frame). `AR11490dp` is AR11490 rebuilt this way from the same
-FITS (`raw_from: AR11490`) to validate the path end to end.
+the CCD frame). `AR11554dp` is AR11554 rebuilt this way from the same
+FITS (`raw_from: AR11554`) to validate the path end to end.
 
 Data volume: ~2–3 days per event at 45 s cadence, two series, ~512×512 patch
 ≈ 10–15 GB/event, i.e. a few hundred GB for the full sample. Development is
