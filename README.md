@@ -28,6 +28,21 @@ Event selection constraint: the pore→penumbra transition must happen at
 small heliocentric angle (default cut |Stonyhurst longitude| ≤ 40°) so that
 LCT foreshortening stays manageable.
 
+Events whose pore phase lies further out are built **deprojected**
+(catalog `deproject: true`, optional per-event `max_abs_longitude_deg`):
+every 45 s frame is remapped while the cube is built onto a Postel grid
+on the solar surface at 0.362 Mm/px, centred on the im_patch centre, and
+continuum frames are divided by a per-frame quiet-Sun limb-darkening fit
+(`moatflow/deproject.py`). The cube keeps its usual name, so FLCT,
+tracking, onsets and movies run unchanged and give areas and speeds in
+true units. Checks: `python tests/test_deproject.py` (synthetic spot and
+pattern at lon −56°: true area and true surface shift recovered, where
+the CCD shows 53 % and 55 %; geometry agrees with sunpy); on AR11490 the
+deprojected frame matches the SHARP CEA spot areas to 2–3 %. The Doppler
+cross-check is skipped for deprojected cubes (its LOS projection assumes
+the CCD frame). `AR11490dp` is AR11490 rebuilt this way from the same
+FITS (`raw_from: AR11490`) to validate the path end to end.
+
 Data volume: ~2–3 days per event at 45 s cadence, two series, ~512×512 patch
 ≈ 10–15 GB/event, i.e. a few hundred GB for the full sample. Development is
 local on 1–2 events; the full sample runs on the cluster (all paths are set
@@ -69,6 +84,9 @@ Seed events come from the penumbra-formation literature:
   from the IOP full text and checked against the PDF. AR 11243's row is
   wrong in the paper itself (it repeats AR 11630's Dec 2012 times); its
   start is inferred from the table position (see `VETTING.md` section A).
+- NOAA 13010 (May 2022) — partial penumbra forming 2022-05-16
+  08:30–13:00 UT at lon ≈ −34°, filaments linked to MMFs (SST), Zbinden et
+  al. 2026, A&A 705, A35. Pore phase at lon −53…−34°: deprojected.
 - Review: Murabito et al. 2019 ([arXiv:1901.05207](https://arxiv.org/abs/1901.05207));
   onset study (pre-HMI benchmark AR 11024): García-Rivas et al. 2024
   ([arXiv:2403.18455](https://arxiv.org/abs/2403.18455)).

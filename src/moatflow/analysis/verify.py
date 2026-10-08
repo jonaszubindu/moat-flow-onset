@@ -25,6 +25,7 @@ quicklook/verify_flct.json for the sample table.
 import json
 from datetime import timedelta
 
+import h5py
 import numpy as np
 from scipy import ndimage
 
@@ -248,7 +249,14 @@ def run_verification(out_dir, event_id, event, frames, tr, VX, VY, t_mid,
                                          aud, ql / "flct_divergence.png",
                                          event_id, t_h)
     vfile = out_dir / "cube_hmi.V_45s_Dopplergram.h5"
-    if vfile.exists():
+    with h5py.File(out_dir / "cube_hmi.Ic_45s_continuum.h5", "r") as h5:
+        deprojected = bool(h5.attrs.get("DEPROJECTED", 0))
+    if deprojected:
+        # los_coefficients assume flows measured in the CCD frame
+        res["doppler"] = None
+        print("  Doppler check skipped: deprojected cube (the LOS "
+              "projection assumes the CCD frame)")
+    elif vfile.exists():
         res["doppler"] = doppler_check(vfile, VX, VY, t_mid, t0, k_dop, tr,
                                        aud, float(lon[k_dop]), lat, b0,
                                        ql / "flct_doppler_check.png", event_id)

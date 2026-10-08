@@ -24,7 +24,9 @@ def main():
     for eid in ids:
         print(f"Resolving {eid} ...")
         events[eid] = resolve_event(events[eid], cfg["jsoc_email"],
-                                    lon_max=cfg["max_abs_longitude_deg"],
+                                    lon_max=events[eid].get(
+                                        "max_abs_longitude_deg",
+                                        cfg["max_abs_longitude_deg"]),
                                     pad_before_h=win.get("pad_before_h", 36),
                                     pad_after_h=win.get("pad_after_h", 24))
         print(f"  HARP {events[eid]['harpnum']}: "

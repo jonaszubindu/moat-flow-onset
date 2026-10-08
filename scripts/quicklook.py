@@ -46,9 +46,10 @@ def main():
     ql.mkdir(exist_ok=True)
     tag = f"{args.series}_{segment}"
 
-    from moatflow.cubes import build_event_cube
+    from moatflow.cubes import build_event_cube, event_cube_opts
     cube_file = build_event_cube(out, args.series, segment,
-                                 email=cfg.get("jsoc_email"))
+                                 email=cfg.get("jsoc_email"),
+                                 **event_cube_opts(cfg, args.event_id))
     cube, t_iso, _ = load_cube(cube_file)
 
     times_s = parse_times(t_iso)

@@ -71,8 +71,9 @@ def cube_line(p):
     try:
         with h5py.File(p, "r") as h5:
             shape = h5["data"].shape
+            dp = "  deprojected" if h5.attrs.get("DEPROJECTED", 0) else ""
         state = "complete" if cube_ok(p) else "INCOMPLETE"
-        return f"{shape[0]} frames {shape[1]}x{shape[2]}  {state}"
+        return f"{shape[0]} frames {shape[1]}x{shape[2]}  {state}{dp}"
     except Exception as e:
         return f"UNREADABLE ({type(e).__name__})"
 

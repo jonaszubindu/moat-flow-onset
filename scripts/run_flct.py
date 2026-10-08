@@ -41,9 +41,10 @@ def main():
     if segment is None:
         raise SystemExit("--segment is required for this series")
     # same cube file the quicklook builds — reused if already present
-    from moatflow.cubes import build_event_cube
+    from moatflow.cubes import build_event_cube, event_cube_opts
     cube_file = build_event_cube(out, args.series, segment,
-                                 email=cfg.get("jsoc_email"))
+                                 email=cfg.get("jsoc_email"),
+                                 **event_cube_opts(cfg, args.event_id))
 
     from moatflow.viz import parse_datetimes, parse_times
     cube, t_iso, _ = load_cube(cube_file)

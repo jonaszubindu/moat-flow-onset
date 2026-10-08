@@ -161,3 +161,48 @@ events:
   t_ref: 2013.01.01_09:48:00_TAI
   lon_ref: -0.044927
   lat_ref: 27.221367
+- id: AR13010
+  noaa_ar: 13010
+  harpnum: 8229
+  t_penumbra_start: 2022-05-16T08:30
+  t_penumbra_end: 2022-05-16T13:00
+  t_start: 2022.05.14_20:30:00_TAI
+  t_end: 2022.05.18_13:00:00_TAI
+  refs:
+  - Zbinden et al. 2026, A&A 705, A35 (doi:10.1051/0004-6361/202556465)
+  notes: 'Not from Murabito et al. 2018. Formation times from the author (SST):
+    onset ~08:30 UT, until ~13:00 UT on 2022-05-16, at lon ~-34 deg; the penumbra
+    stays partial (southern sector) and forming filaments are linked to MMFs. Window
+    = formation start - 36 h (the default pad) to formation end + 48 h (24 h after
+    a 4.5 h formation leaves too little mature phase for the 90th-percentile level);
+    it starts at lon ~-53 deg, mu ~0.58, hence deproject: true and the 60 deg limit.
+    No Dopplergram: the Doppler cross-check assumes the CCD frame.
+
+    '
+  deproject: true
+  max_abs_longitude_deg: 60.0
+  t_ref: 2022.05.18_20:48:00_TAI
+  lon_ref: -0.012488
+  lat_ref: -15.869201
+- id: AR11490dp
+  noaa_ar: 11490
+  harpnum: 1701
+  t_penumbra_start: 2012-05-28T14:00
+  t_penumbra_end: 2012-05-29T21:00
+  t_start: 2012.05.27_02:00:00_TAI
+  t_end: 2012.05.30_21:00:00_TAI
+  refs:
+  - Murabito et al. 2016, ApJ 825, 75 (arXiv:1604.05610)
+  notes: 'Validation of the deprojection path: AR11490 rebuilt from its own FITS
+    (raw_from) with deproject: true. Its onsets must agree with AR11490 within the
+    hourly resolution (the spot stays within ~30 deg of centre, so the correction
+    is small there). Not part of the sample.
+
+    '
+  raw_from: AR11490
+  deproject: true
+  onset_use: false
+  onset_note: deprojection validation copy of AR11490
+  t_ref: 2012.05.29_08:24:00_TAI
+  lon_ref: -0.002949
+  lat_ref: -13.077822

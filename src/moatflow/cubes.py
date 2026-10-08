@@ -65,7 +65,11 @@ def jsoc_bad_trecs(series: str, files: list, email: str) -> set[str]:
 
 def build_cube(fits_dir: Path, out_file: Path,
                pattern: str = "*.fits",
-               exclude_trecs: set[str] | None = None) -> Path:
+               exclude_trecs: set[str] | None = None,
+               deproject: bool = False, continuum: bool = False) -> Path:
+    """deproject: remap every frame onto the solar surface while reading
+    (moatflow.deproject; continuum frames are also limb-normalised), and
+    record the per-frame centre/mu/limb fit as datasets."""
     import re
 
     files = sorted(glob.glob(str(fits_dir / pattern)))
@@ -82,6 +86,16 @@ def build_cube(fits_dir: Path, out_file: Path,
     with fits.open(files[0]) as hdul:
         hdu = _first_image_hdu(hdul)
         shape, header = hdu.data.shape, hdu.header
+    if deproject:
+        from .deproject import N_TARGET, PX_MM, deproject_frame
+        out_shape = (N_TARGET, N_TARGET)
+        info_keys = ("lon_c_deg", "lat_c_deg", "mu_c", "ld_a", "ld_b",
+                     "n_filled")
+        print(f"deprojecting {len(files)} frames onto a {N_TARGET}^2 "
+              f"surface grid at {PX_MM} Mm/px"
+              + (" (limb-normalised)" if continuum else ""))
+    else:
+        out_shape = shape
 
     # Build into a .partial file and rename only on success: a crash
     # (truncated FITS, full disk, Ctrl-C) otherwise leaves a half-filled
@@ -91,10 +105,13 @@ def build_cube(fits_dir: Path, out_file: Path,
     tmp = out_file.with_name(out_file.name + ".partial")
     try:
       with h5py.File(tmp, "w") as h5:
-        data = h5.create_dataset("data", shape=(len(files), *shape),
-                                 dtype="f4", chunks=(1, *shape))
+        data = h5.create_dataset("data", shape=(len(files), *out_shape),
+                                 dtype="f4", chunks=(1, *out_shape))
         t_obs = h5.create_dataset("t_obs", shape=(len(files),),
                                   dtype=h5py.string_dtype())
+        if deproject:
+            info = {k: h5.create_dataset(f"dp/{k}", shape=(len(files),),
+                                         dtype="f8") for k in info_keys}
         for i, f in enumerate(files):
             # surface the offending file — truncated FITS from interrupted
             # downloads otherwise fail deep inside astropy
@@ -105,7 +122,13 @@ def build_cube(fits_dir: Path, out_file: Path,
                         raise ValueError(
                             f"shape {hdu.data.shape} != {shape} — "
                             "frame not tracked/cropped consistently?")
-                    data[i] = hdu.data.astype("f4")
+                    if deproject:
+                        data[i], inf = deproject_frame(hdu.data, hdu.header,
+                                                       continuum)
+                        for k in info_keys:
+                            info[k][i] = inf[k]
+                    else:
+                        data[i] = hdu.data.astype("f4")
                     t = hdu.header.get("T_OBS") or hdu.header.get("DATE-OBS")
                     if not t or not str(t).strip():
                         raise ValueError("header has neither T_OBS nor "
@@ -124,11 +147,18 @@ def build_cube(fits_dir: Path, out_file: Path,
                     h5.attrs[k] = v
                 except TypeError:
                     pass
+        if deproject:
+            # the FITS keys above describe frame 0 on the CCD, not this grid
+            h5.attrs.update({"DEPROJECTED": 1, "DP_PROJ": "ARC (Postel), "
+                             "centred per frame on the im_patch centre, "
+                             "north up", "DP_PX_MM": PX_MM,
+                             "DP_LIMBNORM": int(continuum)})
       tmp.replace(out_file)
     except BaseException:
         tmp.unlink(missing_ok=True)
         raise
-    print(f"Wrote {out_file}: {len(files)} frames of {shape}")
+    print(f"Wrote {out_file}: {len(files)} frames of {out_shape}"
+          + (" (deprojected)" if deproject else ""))
     return out_file
 
 
@@ -152,16 +182,33 @@ def cube_ok(path) -> bool:
 
 
 def build_event_cube(event_dir: Path, series: str, segment: str,
-                     email: str | None = None) -> Path:
+                     email: str | None = None, deproject: bool = False,
+                     raw_dir: Path | None = None) -> Path:
     """Build (or reuse) the cube for one event/series, QUALITY-filtered.
 
     For the 45 s series the im_patch export has no QUALITY filter, so
     bad records are fetched from JSOC and excluded here; SHARP cubes are
     already filtered at query time.
+
+    deproject : remap onto the solar surface (catalog `deproject: true`;
+                45 s series only -- SHARP CEA maps already are). The cube
+                keeps its usual name so every later step reads it as is.
+    raw_dir   : event directory holding the FITS (catalog `raw_from`),
+                when it is not event_dir itself.
     """
     cube_file = event_dir / f"cube_{series}_{segment}.h5"
+    deproject = deproject and series.startswith("hmi.")
+    src_dir = (raw_dir or event_dir) / series
     if cube_file.exists():
         if cube_ok(cube_file):
+            with h5py.File(cube_file, "r") as h5:
+                is_dp = bool(h5.attrs.get("DEPROJECTED", 0))
+            if is_dp != deproject:
+                raise SystemExit(
+                    f"{cube_file.name} is {'' if is_dp else 'not '}"
+                    f"deprojected but the catalog says deproject: "
+                    f"{str(deproject).lower()} -- delete the cube (and the "
+                    "flct_*.h5 built from it) to rebuild")
             return cube_file
         print(f"existing {cube_file.name} is incomplete (interrupted build "
               "by an older version?) — rebuilding")
@@ -169,11 +216,12 @@ def build_event_cube(event_dir: Path, series: str, segment: str,
     pattern = f"*.{segment}.fits"
     exclude = None
     if series.startswith("hmi.") and email:
-        files = sorted(glob.glob(str(event_dir / series / pattern)))
+        files = sorted(glob.glob(str(src_dir / pattern)))
         if files:
             exclude = jsoc_bad_trecs(series, files, email)
-    return build_cube(event_dir / series, cube_file, pattern=pattern,
-                      exclude_trecs=exclude)
+    return build_cube(src_dir, cube_file, pattern=pattern,
+                      exclude_trecs=exclude, deproject=deproject,
+                      continuum=segment == "continuum")
 
 
 def load_cube(path: Path):
@@ -181,3 +229,15 @@ def load_cube(path: Path):
     h5 = h5py.File(path, "r")
     return h5["data"], [t.decode() if isinstance(t, bytes) else t
                         for t in h5["t_obs"][:]], dict(h5.attrs)
+
+
+def event_cube_opts(cfg: dict, event_id: str) -> dict:
+    """build_event_cube options from the catalog entry: `deproject: true`
+    and `raw_from: <event>` (read another event's FITS, e.g. to rebuild
+    an event deprojected for validation without downloading it twice)."""
+    from .catalog import load_events
+    from .config import event_dir
+    ev = load_events().get(event_id, {})
+    raw = ev.get("raw_from")
+    return {"deproject": bool(ev.get("deproject", False)),
+            "raw_dir": event_dir(cfg, raw) if raw else None}
