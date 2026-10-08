@@ -306,3 +306,32 @@ Also added: whether each onset holds for 12 h (AR11630's moat crosses
 40 % on a short bump at 48 h; main rise ~60 h) and the annulus
 contamination within 3 h of the moat onset. The literature band is now
 clipped to the data (AR11243's December 2012 dates stretched its panel).
+
+## K. Sample result after the decisions (2026-10-08, code 714ab19)
+
+Decisions: AR11610 excluded by hand (`onset_use: false`, weak moat, ring
+SNR 0.7); AR11243 kept, literature start inferred from the Table 1
+position (section A); symmetric 8 h pre-onset rule accepted for now.
+AR11242 now runs (seed falls back to the umbra peak; the spot decays
+inside its window) and is excluded by the rule: moat "on" from the first
+tracked epoch, ring SNR 0.8.
+
+| event   | penumbra | moat  | lag   | 25/40/60 %       | 1st app. | status |
+|---------|----------|-------|-------|------------------|----------|--------|
+| AR11184 | 48.5     | 55.5  | +7    | +9 / +7 / +11    | +19      | used |
+| AR11243 | 21.5     | 26.5  | +5    | -16 / +5 / +4    | -19      | used; sign depends on rule |
+| AR11490 | 40.5     | 43.5  | +3    | +4 / +3 / +8     | +8       | used |
+| AR11554 | 34.5     | 46.5  | +12   | +14 / +12 / +10  | +17      | used |
+| AR11630 | 34.5     | 48.5  | +14   | +14 / +14 / +22  | +5       | used; moat onset on a bump |
+| AR11640 | 41.5     | 28.5  | -13   | -7 / -13 / -23   | +5       | used; sign depends on rule |
+| AR11150, AR11210, AR11242, AR11466, AR11512, AR11610 | | | | | | excluded |
+
+Sample (n = 6): median lag **+6.0 h**, range -13 .. +14 h; moat after
+penumbra in 5, before in 1 (AR11640). Sweep medians +6.5 / +6.0 / +9.0 h
+(25/40/60 %); first appearance median +6.5 h (5 after, 1 before:
+AR11243). MMF lag median +8.0 h. The sign of the median does not depend
+on the threshold fraction or on the onset definition.
+
+Still to do: AR11150 FLCT was being re-run on the server at the time of
+this table; rerun its onset analysis and movie when it finishes (it is
+excluded either way, no pore phase).
