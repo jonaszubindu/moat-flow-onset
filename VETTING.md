@@ -259,3 +259,42 @@ decays before the penumbra forms; the outflow establishes after it.
 - [ ] Decide on events whose tracking starts after the literature
       formation start (AR11150, AR11466, AR11512) once their curves exist;
       set `onset_use` in the catalog accordingly.
+
+## J. First full sample run, and two rule changes made after seeing it (2026-10-08)
+
+Server run of `sample_analysis.py` over 10 events, BEFORE the changes
+below (kept here because the changes were made after looking at it):
+
+| event   | penumbra | moat  | lag   | 25/40/60 %     | status |
+|---------|----------|-------|-------|----------------|--------|
+| AR11184 | 48.5     | 55.5  | +7    | +9 / +7 / +11  | used |
+| AR11210 | 32.5     | 47.5  | +15   | +13 / +15 / +5 | excluded: onset in baseline window |
+| AR11243 | 21.5     | 26.5  | +5    | -16 / +5 / +4  | used; catalog dates still wrong |
+| AR11466 | 9.5      | 12.5  | +3    | +2 / +3 / -1   | excluded: no pore phase |
+| AR11490 | 40.5     | 43.5  | +3    | +4 / +3 / +8   | used |
+| AR11512 | 20.5     | 4.5   | -16   | -7 / -16 / -9  | used |
+| AR11554 | 34.5     | 46.5  | +12   | +14 / +12 / +10| used |
+| AR11610 | 45.5     | 44.5  | -1    | -9 / -1 / +1   | used; weak moat (SNR 0.7) |
+| AR11630 | 34.5     | 48.5  | +14   | +14 / +14 / +22| used |
+| AR11640 | 41.5     | 28.5  | -13   | -7 / -13 / -23 | used; annulus up to 100 % masked |
+
+Median +4 h over 8 used; 5 after, 1 within 2 h, 2 before.
+AR11150 (no onset run yet) and AR11242 (onset run failed) missing.
+
+1. **Pre-onset requirement made symmetric.** The penumbra onset had to
+   be preceded by 8 tracked hours; the moat onset only had to avoid the
+   very first epoch. AR11512 showed the gap: its moat is at 25 % of its
+   mature level in the first tracked hour and crosses 40 % 4 h in, so
+   "already on" cannot be excluded. Both onsets now need 8 tracked hours
+   before them. On this run it excludes AR11512 only. Reversible per
+   event with `onset_use: true` in the catalog.
+2. **First-appearance view added** (penumbra: baseline + max(3 sigma,
+   20 Mm^2); moat: 3 sigma of its noise above 0, >= 0.05 km/s). AR11640
+   showed why: both curves start rising together at ~21 h, but the large
+   spot (459 Mm^2) grows its penumbral area slowly, so the 40 % rule
+   times growth rather than appearance. Both lags are now reported.
+
+Also added: whether each onset holds for 12 h (AR11630's moat crosses
+40 % on a short bump at 48 h; main rise ~60 h) and the annulus
+contamination within 3 h of the moat onset. The literature band is now
+clipped to the data (AR11243's December 2012 dates stretched its panel).

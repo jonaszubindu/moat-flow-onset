@@ -108,6 +108,9 @@ def write_csv(rows, path):
     cols = ["event", "used", "use_reason", "lit_start_h", "lit_end_h",
             "t_first_valid_h", "t_pen_h", "t_pen_first_departure_h",
             "t_moat_h", "t_mmf_h", "lag_moat_h", "lag_mmf_h", *SWEEP_KEYS,
+            "t_moat_first_h", "moat_first_thr_km_s", "lag_first_h",
+            "pre_onset_pen_h", "pre_onset_moat_h", "pen_holds", "moat_holds",
+            "contamination_at_moat_onset",
             "pen_baseline_Mm2", "pen_mature_Mm2", "pen_baseline_frac",
             "moat_mature_km_s", "ring_snr", "contamination_median",
             "contamination_max", "doppler_r", "doppler_amp",
@@ -136,9 +139,12 @@ def report(rows, missing):
           f"(penumbra: pore baseline -> 90th pct; moat: 0 -> 90th pct); "
           f"onset = first of 3 consecutive hours above.")
     print(f"Lag = moat onset - penumbra onset; positive = moat AFTER "
-          f"penumbra. Times in h since the first cube frame.\n")
+          f"penumbra. Times in h since the first cube frame.")
+    print("lag1st = the same for FIRST APPEARANCE (penumbra: baseline + "
+          "max(3 sigma, 20 Mm^2); moat: 3 sigma of its noise above 0, "
+          ">= 0.05 km/s).\n")
     hdr = (f"{'event':8s} {'use':4s} {'lit':>11s} {'pen':>6s} {'(1st)':>6s} "
-           f"{'moat':>6s} {'MMF':>6s} {'lag':>6s}  "
+           f"{'moat':>6s} {'MMF':>6s} {'lag':>6s} {'lag1st':>6s}  "
            + " ".join(f"{k[5:7]+'%':>5s}" for k in SWEEP_KEYS)
            + f"  {'SNR':>4s} {'Dopp':>5s}")
     print(hdr)
@@ -148,7 +154,8 @@ def report(rows, missing):
         print(f"{r['event']:8s} {'yes' if r['used'] else 'NO':4s} {lit:>11s} "
               f"{fmt(r['t_pen_h']):>6s} {fmt(r['t_pen_first_departure_h']):>6s} "
               f"{fmt(r['t_moat_h']):>6s} {fmt(r['t_mmf_h']):>6s} "
-              f"{fmt(r['lag_moat_h'], sign=True):>6s}  "
+              f"{fmt(r['lag_moat_h'], sign=True):>6s} "
+              f"{fmt(r['lag_first_h'], sign=True):>6s}  "
               + " ".join(f"{fmt(r[k], 0, True):>5s}" for k in SWEEP_KEYS)
               + f"  {fmt(r['ring_snr']):>4s} {fmt(r['doppler_r'], 2):>5s}")
     print()
@@ -173,6 +180,14 @@ def report(rows, missing):
           f"range {lags.min():+.1f} .. {lags.max():+.1f} h")
     print(f"  moat after penumbra: {after}, within +-{SIMULTANEOUS_H:.0f} h: "
           f"{len(lags) - after - before}, before: {before}")
+    first = np.array([r["lag_first_h"] for r in used
+                      if np.isfinite(r["lag_first_h"])])
+    if len(first):
+        fa = int((first > SIMULTANEOUS_H).sum())
+        fb = int((first < -SIMULTANEOUS_H).sum())
+        print(f"  first appearance: median {np.median(first):+.1f} h, range "
+              f"{first.min():+.1f} .. {first.max():+.1f} h; after {fa}, "
+              f"within {len(first) - fa - fb}, before {fb}")
     for k in SWEEP_KEYS:
         s = np.array([r[k] for r in used if np.isfinite(r[k])])
         if len(s):
@@ -208,17 +223,28 @@ def plot_grid(rows, path):
         if c["mmf"] is not None:
             ax.plot(t, norm(c["mmf"]), color="tab:purple", lw=0.9, ls=":",
                     label="MMF outflow")
-        if np.isfinite(r["lit_start_h"]):
-            ax.axvspan(r["lit_start_h"], min(r["lit_end_h"], t[-1]),
-                       color="green", alpha=0.10, label="literature formation")
+        lo, hi = r["lit_start_h"], r["lit_end_h"]
+        if np.isfinite(lo) and np.isfinite(hi) and hi > t[0] and lo < t[-1]:
+            ax.axvspan(max(lo, t[0]), min(hi, t[-1]), color="green",
+                       alpha=0.10, label="literature formation")
+        elif np.isfinite(lo):
+            ax.text(0.98, 0.04, "literature interval outside the data",
+                    transform=ax.transAxes, ha="right", fontsize=7,
+                    color="firebrick")
         ax.axhline(FRACTION, color="gray", lw=0.6, ls="--")
         ax.axhline(0, color="k", lw=0.4)
         for key, col in (("t_pen_h", "tab:orange"), ("t_moat_h", "tab:blue")):
             if np.isfinite(r[key]):
                 ax.axvline(r[key], color=col, lw=1.0, ls="--")
+        for key, col in (("t_pen_first_departure_h", "tab:orange"),
+                         ("t_moat_first_h", "tab:blue")):
+            if np.isfinite(r[key]):
+                ax.axvline(r[key], color=col, lw=0.8, ls=":")
+        ax.set_xlim(t[0] - 1, t[-1] + 1)
         state = "used" if r["used"] else "EXCLUDED"
         ax.set_title(f"{r['event']}  lag {fmt(r['lag_moat_h'], sign=True)} h"
-                     f"  [{state}]", fontsize=10,
+                     f" (1st {fmt(r['lag_first_h'], sign=True)})  [{state}]",
+                     fontsize=10,
                      color="k" if r["used"] else "firebrick")
         ax.set_ylim(-0.5, 1.4)
         ax.set_xlabel("h since first cube frame", fontsize=8)
@@ -229,7 +255,8 @@ def plot_grid(rows, path):
     axes.flat[0].legend(fontsize=7, loc="upper left")
     fig.suptitle("Each curve scaled so 0 = none, 1 = mature level; dashed "
                  f"grey = threshold ({FRACTION:.0%}); dashed verticals = "
-                 "onsets", fontsize=10)
+                 "onsets (40 % rule), dotted = first appearance",
+                 fontsize=10)
     fig.tight_layout()
     fig.savefig(path, dpi=130)
     plt.close(fig)
@@ -286,6 +313,10 @@ def plot_lags(rows, path):
             if np.isfinite(r[k]):
                 ax.plot(r[k], i, m, color=col, ms=7 if f == FRACTION else 5,
                         label=f"f = {f:.0%}" if i == 0 else None)
+        if np.isfinite(r["lag_first_h"]):
+            ax.plot(r["lag_first_h"], i, "x",
+                    color="tab:red" if r["used"] else "0.7", ms=7,
+                    label="first appearance" if i == 0 else None)
     ax.axvspan(-SIMULTANEOUS_H, SIMULTANEOUS_H, color="0.9", zorder=0)
     ax.axvline(0, color="k", lw=0.6)
     ax.set_yticks(range(len(rows)))

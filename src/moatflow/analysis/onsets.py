@@ -27,8 +27,16 @@ would bias the lag by construction. For each curve (hourly epochs):
 The lag is reported for several f as a robustness check: if its sign holds
 across f, the conclusion does not depend on where the threshold is put.
 
-Also reported, but not used for the lag: the penumbra "first departure",
-baseline + max(3 sigma, 20 Mm^2) -- the earliest detectable penumbra.
+Second view, "first appearance", for both curves alike: penumbra =
+baseline + max(3 sigma, 20 Mm^2); moat = 3 sigma of the smoothed curve's
+noise above zero, at least 0.05 km/s. The 40 % rule times when each
+quantity is ESTABLISHED, which also depends on how fast it grows (a large
+spot accumulates its penumbral area slowly); first appearance times when
+it is first DETECTABLE. Both lags are reported.
+
+Each onset must be preceded by BASELINE_H tracked hours, for both curves:
+an onset earlier than that cannot be told apart from "already on when
+tracking started".
 """
 
 import numpy as np
@@ -41,6 +49,9 @@ FRACTION = 0.4
 FRACTION_SWEEP = (0.25, 0.4, 0.6)
 FIRST_SIGMA = 3.0
 FIRST_MIN_AREA = 20.0          # Mm^2
+MOAT_FIRST_FLOOR = 0.05        # km/s, ~3x the hour-to-hour scatter
+STABLE_H = 12.0                # an onset should hold this long
+CONTAM_AT_ONSET = 0.3          # annulus fraction masked near the onset
 
 # quality thresholds for flags
 NO_PORE_PHASE_FRAC = 0.3       # baseline area / mature area above this
@@ -94,6 +105,35 @@ def curve_onset(t, y, zero, fraction=FRACTION):
             "zero": zero, "smooth": ys}
 
 
+def moat_first_appearance(t, v, valid):
+    """First appearance of outflow: 3 sigma of the smoothed curve's noise
+    above zero (at least MOAT_FIRST_FLOOR).
+
+    sigma is estimated from the residual about the 3-point running mean
+    (white noise leaves 0.816 sigma there) and divided by sqrt(3) for the
+    smoothed curve the threshold is applied to.
+    """
+    v = np.where(valid, v, np.nan)
+    ys = smooth(v)
+    res = v - ys
+    good = np.isfinite(res)
+    if good.sum() < 10:
+        return np.nan, np.nan
+    r = res[good]
+    sig_raw = 1.4826 * np.median(np.abs(r - np.median(r))) / 0.816
+    sig_smoothed = sig_raw / np.sqrt(3.0)
+    thr = max(3.0 * sig_smoothed, MOAT_FIRST_FLOOR)
+    return first_persistent(t, ys, thr), thr
+
+
+def holds_above(t, ys, thr, t_on, hours=STABLE_H):
+    """False if the smoothed curve drops back below thr within `hours`."""
+    if not np.isfinite(t_on):
+        return np.nan
+    sel = (t > t_on) & (t <= t_on + hours) & np.isfinite(ys)
+    return bool(np.all(ys[sel] > thr)) if sel.any() else np.nan
+
+
 def penumbra_onset(t, a_pen, valid, fraction=FRACTION):
     a = np.where(valid, a_pen, np.nan)
     base, sig, t_first_valid = pore_baseline(t, a)
@@ -129,6 +169,8 @@ def analyse(npz, fraction=FRACTION, sweep=FRACTION_SWEEP, verify=None):
     pf0, pf1 = (float(x) for x in npz["pf_lit"]) if "pf_lit" in npz \
         else (np.nan, np.nan)
 
+    t_moat_first, moat_first_thr = moat_first_appearance(t, npz["v_gran"],
+                                                         valid)
     r = {
         "n_epochs": int(len(t)),
         "n_valid": int(valid.sum()),
@@ -145,6 +187,13 @@ def analyse(npz, fraction=FRACTION, sweep=FRACTION_SWEEP, verify=None):
         "t_mmf_h": mmf["t"] if mmf else np.nan,
         "lag_moat_h": moat["t"] - pen["t"],
         "lag_mmf_h": (mmf["t"] - pen["t"]) if mmf else np.nan,
+        "t_moat_first_h": t_moat_first,
+        "moat_first_thr_km_s": moat_first_thr,
+        "lag_first_h": t_moat_first - pen["t_first_departure"],
+        "pre_onset_pen_h": pen["t"] - pen["t_first_valid"],
+        "pre_onset_moat_h": moat["t"] - pen["t_first_valid"],
+        "pen_holds": holds_above(t, pen["smooth"], pen["thr"], pen["t"]),
+        "moat_holds": holds_above(t, moat["smooth"], moat["thr"], moat["t"]),
     }
     for f in sweep:
         p = penumbra_onset(t, npz["a_pen"], valid, f)["t"]
@@ -158,6 +207,12 @@ def analyse(npz, fraction=FRACTION, sweep=FRACTION_SWEEP, verify=None):
         else np.array([np.nan])
     moat_on = np.isfinite(moat["smooth"]) & (moat["smooth"] > moat["thr"])
     scatter = float(np.nanmedian(sc[moat_on])) if moat_on.any() else np.nan
+    if np.isfinite(moat["t"]) and fc.shape == t.shape:
+        near = np.abs(t - moat["t"]) <= 3
+        r["contamination_at_moat_onset"] = (float(np.nanmax(fc[near]))
+                                            if near.any() else np.nan)
+    else:
+        r["contamination_at_moat_onset"] = np.nan
     r["contamination_median"] = float(np.nanmedian(fc))
     r["contamination_max"] = float(np.nanmax(fc))
     r["ring_snr"] = (moat["mature"] / scatter
@@ -181,8 +236,12 @@ def analyse(npz, fraction=FRACTION, sweep=FRACTION_SWEEP, verify=None):
                         "of mature area)")
     if np.isfinite(pen["t"]) and pen["t"] < pen["t_first_valid"] + BASELINE_H:
         blocking.append("penumbra onset inside the baseline window")
-    if np.isfinite(moat["t"]) and moat["t"] <= pen["t_first_valid"]:
-        blocking.append("moat above threshold from the first valid epoch")
+    # same requirement as for the penumbra: an onset needs BASELINE_H
+    # tracked hours before it, else "already on" cannot be excluded
+    if np.isfinite(moat["t"]) and \
+            moat["t"] < pen["t_first_valid"] + BASELINE_H:
+        blocking.append(f"moat onset only {r['pre_onset_moat_h']:.0f} h "
+                        "after tracking starts (may already be on)")
     if np.isfinite(pf0):
         lead = pf0 - pen["t_first_valid"]
         if lead < 0:
@@ -199,6 +258,21 @@ def analyse(npz, fraction=FRACTION, sweep=FRACTION_SWEEP, verify=None):
                         "contaminated")
     if np.isfinite(r["doppler_r"]) and r["doppler_r"] < LOW_DOPPLER_R:
         warnings.append(f"Doppler check r = {r['doppler_r']:.2f}")
+    if r["moat_holds"] is False:
+        warnings.append(f"moat drops back below threshold within "
+                        f"{STABLE_H:.0f} h of its onset")
+    if r["pen_holds"] is False:
+        warnings.append(f"penumbra drops back below threshold within "
+                        f"{STABLE_H:.0f} h of its onset")
+    if np.isfinite(r["contamination_at_moat_onset"]) and \
+            r["contamination_at_moat_onset"] >= CONTAM_AT_ONSET:
+        warnings.append(f"annulus {r['contamination_at_moat_onset']:.0%} "
+                        "contaminated within 3 h of the moat onset")
+    if np.isfinite(r["lag_moat_h"]) and np.isfinite(r["lag_first_h"]) and \
+            abs(r["lag_moat_h"]) > 2 and abs(r["lag_first_h"]) > 2 and \
+            np.sign(r["lag_moat_h"]) != np.sign(r["lag_first_h"]):
+        warnings.append("lag sign differs between 40 % rule and first "
+                        "appearance")
     sweep_lags = [r[f"lag_f{int(round(f * 100)):02d}_h"] for f in sweep]
     signs = {np.sign(x) for x in sweep_lags if np.isfinite(x) and abs(x) > 2}
     if len(signs) > 1:
