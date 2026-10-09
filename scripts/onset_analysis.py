@@ -65,6 +65,8 @@ def main():
     cfg = load_config()
     out = event_dir(cfg, args.event_id)
     event = load_events()[args.event_id]
+    # usually made by quicklook.py, which a raw_from copy may never run
+    (out / "quicklook").mkdir(exist_ok=True)
 
     cube_file = out / "cube_hmi.Ic_45s_continuum.h5"
     flow_file = out / "flct_hmi.Ic_45s_continuum_w3600s_s5px_k1.h5"
