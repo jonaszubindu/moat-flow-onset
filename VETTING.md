@@ -398,3 +398,36 @@ otherwise reads as W outflow / E inflow):
   onset is orientation-dependent (-7 / +6 h).
 - Single-quadrant onsets are less sharp than whole-spot ones: on AR11184
   a 30 deg rotation moves quadrant lags by up to ~10 h.
+
+## N. Sector analysis on the sample: control for AR13010 (2026-10-09)
+
+Same script on the six used events (default quadrants, background flow
+removed). Moat-minus-penumbra lag per quadrant [h]:
+
+| event   | W    | N    | E    | S    | whole spot |
+|---------|------|------|------|------|------------|
+| AR11184 | -5   | +5   | +20  | +5   | +7         |
+| AR11243 | -10  | -17  | +16  | +13  | +5         |
+| AR11490 | -16  | +4   | +22  | 0    | +3         |
+| AR11554 | +17  | -3   | +26  | -20  | +12        |
+| AR11630 | (no growth) | -1 | +31 | -16 | +14      |
+| AR11640 | -10  | -18  | -9   | +12  | -13        |
+| median  | -10  | -2   | +21  | +2.5 |            |
+
+- Single-quadrant lags scatter by sd 15.3 h about the whole-spot lag;
+  4 of the 12 N/S quadrant lags are -16 to -20 h although every
+  whole-spot lag but one is positive. AR13010's S lag (-19 / -20 h,
+  section M) is inside that range: at sector level AR13010 is not
+  distinguishable from the sample. Its robust results are the penumbra
+  onset (HMI 30 min before SST), its location (SSE) and the MMF outflow
+  growing with the penumbra; its whole-spot -9 h is the N-quadrant
+  merger bump. Single-quadrant onsets are not used for lags.
+- East-west asymmetry: the E-quadrant moat is the weakest in 6/6 events
+  (median mature 0.17 vs 0.33-0.41 km/s elsewhere) and starts late in
+  5/6 (median +21 h); W starts early (median -10 h). The tracked spots
+  are leading spots, whose E side faces the rest of the region (opposite
+  polarity, plage, pores; E rings are also the most contaminated). A
+  residual disk-centre LCT bias would give the same sign for onsets east
+  of the meridian, but the weak E side persists through mature phases
+  that extend past the meridian, where that bias reverses. Open; a test
+  is to compare the asymmetry in epochs east vs west of the meridian.
