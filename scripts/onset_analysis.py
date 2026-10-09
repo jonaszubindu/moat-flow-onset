@@ -132,9 +132,24 @@ def main():
     mfile = out / "flct_hmi.M_45s_magnetogram_w3600s_s5px_k1.h5"
     v_mmf = None
     if mfile.exists():
+        # Pair magnetogram flow maps with the continuum epochs BY TIME:
+        # the M cube can miss frames the Ic cube has (AR13010: 6989 vs
+        # 7079), which drops or shifts hourly windows. Each M flow file's
+        # t_mid_s counts from its own cube's first frame (attr t0_isot).
         with h5py.File(mfile) as f:
-            aud_m = audit_series(frames, tr, f["vx"][:], f["vy"][:],
-                                 mode=args.annulus)
+            tm = f["t_mid_s"][:]
+            if "t0_isot" in f.attrs:
+                tm = tm + (datetime.fromisoformat(str(f.attrs["t0_isot"]))
+                           - t0).total_seconds()
+            vxm, vym = f["vx"][:], f["vy"][:]
+        j = np.array([int(np.argmin(np.abs(tm - t))) for t in t_mid])
+        ok = np.abs(tm[j] - t_mid) <= 900
+        if not ok.all():
+            print(f"MMF: {np.sum(~ok)} of {len(t_mid)} epochs have no "
+                  "magnetogram flow map within 15 min (left empty)")
+        VXm = np.where(ok[:, None, None], vxm[j], np.nan)
+        VYm = np.where(ok[:, None, None], vym[j], np.nan)
+        aud_m = audit_series(frames, tr, VXm, VYm, mode=args.annulus)
         v_mmf = aud_m["v_clean"]
 
     np.savez(out / "onset_series.npz", t_h=t_h,
