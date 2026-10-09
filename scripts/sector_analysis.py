@@ -7,7 +7,7 @@ sector). Tracks the same spot on the same epochs as onset_analysis
 (granulation and MMF) into W / N / E / S quadrants, and applies the
 whole-spot onset rule to each quadrant. Run onset_analysis.py first.
 
-Usage: python scripts/sector_analysis.py AR13010 [--seed-h 48]
+Usage: python scripts/sector_analysis.py AR13010 [--offset -30] [--seed-h 48]
 
 Writes data/<event>/sector_series.npz, quicklook/sector_onsets.json and
 quicklook/sector_comparison.png:
@@ -28,7 +28,7 @@ import numpy as np
 
 from moatflow.analysis.eventdata import load_tracked_event
 from moatflow.analysis.onsets import analyse, smooth
-from moatflow.analysis.sectors import sector_onsets, sector_series
+from moatflow.analysis.sectors import QUADRANTS, sector_onsets, sector_series
 from moatflow.config import load_config
 
 
@@ -41,6 +41,10 @@ def fmt(x, sign=False):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("event_id")
+    ap.add_argument("--offset", type=float, default=0.0,
+                    help="rotate the quadrant boundaries by this many deg "
+                         "(counter-clockwise, i.e. W->N), e.g. -30 centres "
+                         "the 'S' quadrant on 240 deg (SSE)")
     ap.add_argument("--seed-h", type=float, default=None,
                     help="tracking seed [h]; default: the seed "
                          "onset_analysis used")
@@ -53,8 +57,15 @@ def main():
     print(f"tracked {tr['valid'].sum()}/{len(t)} epochs "
           f"(seed {d['seed_h']:.0f} h)")
 
+    sectors = {(nm if not args.offset else f"{nm}{args.offset:+.0f}"):
+               (lo + args.offset, hi + args.offset)
+               for nm, (lo, hi) in QUADRANTS.items()}
+    if args.offset:
+        print("quadrants: " + ", ".join(
+            f"{nm} {lo % 360:.0f}-{hi % 360:.0f} deg"
+            for nm, (lo, hi) in sectors.items()))
     ser = sector_series(d["frames"], tr, d["VX"], d["VY"], d["VXm"],
-                        d["VYm"])
+                        d["VYm"], sectors=sectors)
     res = sector_onsets(t, ser, tr["valid"])
     g = np.isfinite(ser["bg_vx"])
     if g.any():
@@ -66,7 +77,8 @@ def main():
     whole = analyse(np.load(out / "onset_series.npz"))
     pf0, pf1 = d["pf_lit"]
 
-    np.savez(out / "sector_series.npz", t_h=t, valid=tr["valid"],
+    tag = "" if not args.offset else f"_off{args.offset:+.0f}"
+    np.savez(out / f"sector_series{tag}.npz", t_h=t, valid=tr["valid"],
              names=np.array(ser["names"]), az_deg=ser["az_deg"],
              **{k: ser[k] for k in ("a_pen", "a_umb", "v", "v_mmf",
                                     "frac_bad", "az_v", "az_pen", "bg_vx",
@@ -79,7 +91,7 @@ def main():
                           "t_moat_h": whole["t_moat_h"],
                           "t_mmf_h": whole["t_mmf_h"],
                           "lag_moat_h": whole["lag_moat_h"]}
-    with open(out / "quicklook" / "sector_onsets.json", "w") as f:
+    with open(out / "quicklook" / f"sector_onsets{tag}.json", "w") as f:
         json.dump(keep, f, indent=2, default=float)
 
     lit = (f"{pf0:.1f} - {pf1:.1f} h" if np.isfinite(pf1)
@@ -157,7 +169,9 @@ def main():
                if np.isfinite(r["lag_moat_h"]) else
                "no penumbra growth" if not r["forms_penumbra"] else
                "no moat onset")
-        ax.set_title(f"{nm} quadrant: {lag}", fontsize=9)
+        lo, hi = sectors[nm]
+        ax.set_title(f"{nm} quadrant ({lo % 360:.0f}-{hi % 360:.0f} deg): "
+                     f"{lag}", fontsize=9)
         ax.set_xlim(t[0], t[-1])
         ax.grid(alpha=0.3)
         if j == 0:
@@ -166,7 +180,7 @@ def main():
             ax.set_xlabel("hours since start")
     fig.suptitle(f"{args.event_id}: penumbra vs moat onset by sector "
                  "(0 deg = west, 90 deg = north)", y=0.995)
-    png = out / "quicklook" / "sector_comparison.png"
+    png = out / "quicklook" / f"sector_comparison{tag}.png"
     fig.savefig(png, dpi=130, bbox_inches="tight")
     print(f"-> {png}")
 
