@@ -176,11 +176,15 @@ events:
     = formation start - 36 h (the default pad) to formation end + 48 h (24 h after
     a 4.5 h formation leaves too little mature phase for the 90th-percentile level);
     it starts at lon ~-53 deg, mu ~0.58, hence deproject: true and the 60 deg limit.
-    No Dopplergram: the Doppler cross-check assumes the CCD frame.
+    No Dopplergram: the Doppler cross-check assumes the CCD frame. seed_prefer_west:
+    false -- the default (western of the two largest umbrae) locks onto the decaying
+    NW pore cluster; the spot that forms the southern penumbra is the largest umbra
+    at the seed epoch (first run, 2026-10-09: tracked the NW cluster, lost at 61 h).
 
     '
   deproject: true
   max_abs_longitude_deg: 60.0
+  seed_prefer_west: false
   t_ref: 2022.05.18_20:48:00_TAI
   lon_ref: -0.012488
   lat_ref: -15.869201

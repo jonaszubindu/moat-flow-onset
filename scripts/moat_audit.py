@@ -49,7 +49,8 @@ def render(event_id, args, cfg):
     frames = [np.asarray(cube[i]) for i in idx]
     seed = seed_epoch(t_h, pf_lit[1], override=args.seed_h,
                       npz_path=out / "onset_series.npz")
-    tr = track_spot(frames, int(np.argmin(np.abs(t_h - seed))))
+    tr = track_spot(frames, int(np.argmin(np.abs(t_h - seed))),
+                    prefer_west=ev.get("seed_prefer_west", True))
     print(f"tracked {tr['valid'].sum()}/{len(frames)} epochs "
           f"(seed {t_h[tr['seed_idx']]:.0f} h)")
 

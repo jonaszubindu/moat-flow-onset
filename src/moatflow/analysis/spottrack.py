@@ -64,7 +64,7 @@ def seed_epoch(t_h, pf_end=np.nan, override=None, npz_path=None):
 
 
 def track_spot(cube, idx_seed: int, r_max_mm: float = 14.0,
-               seg_kwargs: dict | None = None):
+               seg_kwargs: dict | None = None, prefer_west: bool = True):
     """Track the seeded spot over all frames of `cube`.
 
     Returns dict of arrays over frames: center (n,2), area_umbra,
@@ -72,6 +72,11 @@ def track_spot(cube, idx_seed: int, r_max_mm: float = 14.0,
     carried over from the previous frame because segmentation lost it),
     plus seed_idx -- the frame actually used as seed, which differs from
     idx_seed when that frame has no umbra (seed_fallback = True).
+
+    prefer_west : seed on the western of the two largest umbrae (the
+    leading spot of a bipolar group, the sample default); False seeds on
+    the largest umbra (catalog `seed_prefer_west: false`, e.g. AR13010,
+    where the western one is a decaying neighbour cluster).
     """
     seg_kwargs = seg_kwargs or {}
     n = len(cube)
@@ -82,7 +87,8 @@ def track_spot(cube, idx_seed: int, r_max_mm: float = 14.0,
            "valid": np.zeros(n, bool)}
     masks = [None] * n
     try:
-        seed = _pick_seed(np.asarray(cube[idx_seed]), **seg_kwargs)
+        seed = _pick_seed(np.asarray(cube[idx_seed]), prefer_west,
+                          **seg_kwargs)
         fallback = False
     except ValueError:
         # No umbra at the requested epoch: the spot has not formed yet or
@@ -97,7 +103,8 @@ def track_spot(cube, idx_seed: int, r_max_mm: float = 14.0,
               f"{idx_seed}); seeding at frame {best}, where the umbra is "
               "largest")
         idx_seed, fallback = best, True
-        seed = _pick_seed(np.asarray(cube[idx_seed]), **seg_kwargs)
+        seed = _pick_seed(np.asarray(cube[idx_seed]), prefer_west,
+                          **seg_kwargs)
     out["seed_idx"] = idx_seed
     out["seed_fallback"] = fallback
 

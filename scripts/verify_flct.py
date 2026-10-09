@@ -54,7 +54,8 @@ def main():
 
     idx = [int(np.argmin(np.abs(times_s - t))) for t in t_mid]
     frames = [np.asarray(cube[i]) for i in idx]
-    tr = track_spot(frames, int(np.argmin(np.abs(t_h - seed_h))))
+    tr = track_spot(frames, int(np.argmin(np.abs(t_h - seed_h))),
+                    prefer_west=event.get("seed_prefer_west", True))
     seed_h = float(t_h[tr["seed_idx"]])     # after any fallback
     aud = audit_series(frames, tr, VX, VY)
     res = run_verification(out, args.event_id, event, frames, tr, VX, VY,

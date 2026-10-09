@@ -37,6 +37,7 @@ from moatflow.analysis.penumbra import segment_frame
 from moatflow.analysis.spottrack import PX_MM, seed_epoch, track_spot
 from moatflow.batch import CUBE_IC, FLOW_IC, add_event_args, \
     resolve_events, run_batch
+from moatflow.catalog import load_events
 from moatflow.config import event_dir, load_config
 from moatflow.cubes import load_cube
 from moatflow.viz import parse_datetimes, parse_times
@@ -78,7 +79,9 @@ def render(event_id, args, cfg):
     seed_h = seed_epoch(t_mid_h, on["lit_end_h"], override=args.seed_h,
                         npz_path=npz_path)
     tr = track_spot([np.asarray(ic[i]) for i in epoch_idx],
-                    int(np.argmin(np.abs(t_mid_h - seed_h))))
+                    int(np.argmin(np.abs(t_mid_h - seed_h))),
+                    prefer_west=load_events()[event_id].get(
+                        "seed_prefer_west", True))
     print(f"tracked {tr['valid'].sum()}/{len(epoch_idx)} epochs "
           f"(seed {t_mid_h[tr['seed_idx']]:.0f} h)")
     ok = tr["valid"]

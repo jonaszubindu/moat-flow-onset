@@ -116,7 +116,8 @@ def main():
 
     epoch_idx = [int(np.argmin(np.abs(times_s - t))) for t in t_mid]
     frames = [np.asarray(cube[i]) for i in epoch_idx]
-    tr = track_spot(frames, int(np.argmin(np.abs(t_h - seed_h))))
+    tr = track_spot(frames, int(np.argmin(np.abs(t_h - seed_h))),
+                    prefer_west=event.get("seed_prefer_west", True))
     seed_h = float(t_h[tr["seed_idx"]])     # after any fallback
     print(f"tracked {tr['valid'].sum()}/{len(frames)} epochs "
           f"(seed {seed_h:.0f} h)")
