@@ -363,3 +363,38 @@ is ~18 % larger, so it crosses earlier. Consequence: the main (40 %)
 result is robust to foreshortening within the 40 deg cut; first-
 appearance values of events that start near -40 deg carry a few-hour
 systematic.
+
+## M. AR13010: whole spot and sectors (2026-10-09)
+
+Deprojected (window lon -53 -> -5 deg), seed on the largest umbra
+(`seed_prefer_west: false`; the default followed the decaying NW pore
+cluster, see catalog note). Formation from the author's SST data:
+2022-05-16 08:30-13:00 UT = 36.0-40.5 h, southern sector, partial.
+
+Whole spot: penumbra onset 35.5 h (HMI, 30 min before the SST onset),
+moat 26.5 h (-9 h, on a one-sided bump at 26-31 h during the pore
+merger), MMF 42.5 h (+7 h). Blocked: baseline 32 % of mature (the pore
+cluster's grey surroundings count as penumbra). Excluded from the lag
+statistics; reported as a case study.
+
+Sectors (`scripts/sector_analysis.py`, quiet-Sun background flow removed:
+the shrinking-Sun flow is +370 m/s westward at the window start and
+otherwise reads as W outflow / E inflow):
+
+| quadrant (default / --offset -30) | pen onset   | moat onset  | lag         | MMF onset   |
+|-----------------------------------|-------------|-------------|-------------|-------------|
+| S / S-30 (forms the penumbra)     | 38.5 / 37.5 | 18.5 / 18.5 | -20 / -19   | 31.5 / 43.5 |
+| N / N-30                          | 30.5 / 31.5 | 28.5 / 28.5 | -2 / -3     | 5.5 / 5.5   |
+
+- The penumbra appears at ~210-255 deg (SSE) at 33-40 h, as seen at SST.
+- In that quadrant a granular outflow (0.15-0.2 km/s, ~60 % of its later
+  level) exists from ~18 h, ~19 h before the penumbra, in both
+  orientations, and grows further with the penumbral area (55-65 h).
+  A residual disk-centre bias points W/N, so it would lower, not raise,
+  the S outflow.
+- The 26-31 h bump is in the N quadrant, together with a jump in its
+  dark area (pores joining from the north).
+- MMF outflow in S grows with the penumbra (to ~0.45 km/s by ~70 h); its
+  onset is orientation-dependent (-7 / +6 h).
+- Single-quadrant onsets are less sharp than whole-spot ones: on AR11184
+  a 30 deg rotation moves quadrant lags by up to ~10 h.
