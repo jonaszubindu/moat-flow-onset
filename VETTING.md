@@ -431,3 +431,41 @@ removed). Moat-minus-penumbra lag per quadrant [h]:
   of the meridian, but the weak E side persists through mature phases
   that extend past the meridian, where that bias reverses. Open; a test
   is to compare the asymmetry in epochs east vs west of the meridian.
+
+## O. Follow-up statistics (2026-10-09, scripts/followup_stats.py, code bb4c240)
+
+1. Formation wedge (90 deg centred on the 30 deg sector whose penumbra
+   appears first). The penumbra appears first at azimuth 195-255 deg
+   (E-SE-S) in all six used events -- the side facing the opposite
+   (following) polarity, which lies at ~180 deg. In that wedge the moat
+   starts LAST: lag +19, +18, +21, +26, +53 h (AR11184, 11243, 11490,
+   11554, 11640; AR11630's wedge growth is too small), median +21 h,
+   5/5 after. The opposite (western) wedge: +10, -9, -15, +18, -11 h.
+   No early moat where the penumbra forms first.
+2. Moat vs penumbra (whole spot). Within an event the moat tracks the
+   penumbral AREA (median r = +0.74 over used events) and anti-correlates
+   with its growth RATE (median r = -0.38: strongest once growth stops).
+   The shift that maximises r(moat, area) has median +6.5 h, an
+   onset-free estimate equal to the onset lag (+6 h). Across events the
+   mature moat does not scale with mature penumbral area (Spearman
+   -0.09, n = 6); across quadrants (normalised per event) more
+   penumbral growth does not mean a stronger moat (-0.30, n = 24).
+3. Bias test for the E-W asymmetry (W minus E, background flow removed,
+   mature epochs). East of the meridian +0.158 +- 0.017 km/s (82 %
+   positive, n = 99), west +0.178 +- 0.010 (91 % positive, n = 211): no
+   sign flip, as a residual disk-centre bias would give. Regression on
+   the removed background flow: beta = -0.00 +- 0.08 -- no dependence.
+   Direction test: the strongest mature moat points a median 26 deg
+   from "away from the opposite-polarity flux" and 66 deg from "towards
+   disk centre" (random: 90 deg); closer to the former in 7/7 events
+   (AR13010's harmonic amplitude is ~0, so its angle means little). The
+   N-S hemisphere test is inconclusive (4/7) and confounded with Joy's
+   law. Conclusion: the asymmetry is physical -- the moat is weak and
+   late on the side facing the following polarity, where the penumbra
+   forms first.
+4. Leading or trailing. All six used spots and AR13010 are LEADING
+   spots, by Hale's law (cycle 24 N -, S +; cycle 25 S -) and by
+   position (57-83 Mm west of the opposite-polarity flux centroid). Of
+   the 13 tracked spots only AR11610 is trailing (negative in the south,
+   cycle 24; 40 Mm east of the opposite flux) -- also the weakest moat
+   (0.08 km/s), excluded in section K.
