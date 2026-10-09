@@ -16,9 +16,19 @@ and each sector's curves go through the same onset rule as the whole
 spot (moatflow.analysis.onsets), with their own baseline and mature
 level. Angles: 0 deg = +x = solar west, 90 deg = +y = north (im_patch
 and deprojected cubes are both north-up, west-right).
+
+Background flow. Before the split, each epoch's quiet-Sun flow (median
+over pixels > QUIET_DILATE_PX from any spot or pore) is subtracted. A
+uniform flow v adds v*cos(phi - phi_v) to v_r: it cancels in the
+whole-ring mean (verify.shrinking_sun_check: <= 29 m/s on AR13010) but
+not in one sector. Granulation LCT carries such a flow towards disk
+centre (shrinking-Sun effect, Loeptien et al. 2016), growing with
+centre distance: AR13010 starts with <v_x> = +370 m/s at lon -53 deg,
+which made W look like outflow and E like inflow before any penumbra.
 """
 
 import numpy as np
+from scipy import ndimage
 
 from .audit import annulus_geometry, contamination_mask, radial_velocity
 from .onsets import (FIRST_MIN_AREA, MOAT_FIRST_FLOOR, holds_above,
@@ -32,6 +42,8 @@ N_AZ = 12                    # 30 deg sectors for the time-azimuth maps
 MIN_PX = 15                  # annulus pixels needed for a sector mean
 NO_GROWTH_MM2 = FIRST_MIN_AREA / 2   # a quadrant "forms penumbra" above this
 NO_MOAT_KMS = MOAT_FIRST_FLOOR
+QUIET_DILATE_PX = 20          # ~7 Mm: keeps moats out of the background
+MIN_QUIET_PX = 500
 
 
 def _in_sector(phi_deg, lo, hi):
@@ -39,8 +51,16 @@ def _in_sector(phi_deg, lo, hi):
     return ((phi_deg - lo) % 360.0) < ((hi - lo) % 360.0 or 360.0)
 
 
+def background_flow(vx, vy, quiet):
+    """Median (vx, vy) over quiet pixels; (0, 0) if too few."""
+    q = quiet & np.isfinite(vx) & np.isfinite(vy)
+    if q.sum() < MIN_QUIET_PX:
+        return 0.0, 0.0
+    return float(np.median(vx[q])), float(np.median(vy[q]))
+
+
 def sector_series(frames, tr, VX, VY, VXm=None, VYm=None, mode="fixed",
-                  sectors=QUADRANTS, n_az=N_AZ):
+                  sectors=QUADRANTS, n_az=N_AZ, remove_background=True):
     """Per-epoch, per-sector areas and outflows.
 
     Returns dict of arrays: a_pen, a_umb, v, v_mmf, frac_bad (n, nsec) for
@@ -56,6 +76,8 @@ def sector_series(frames, tr, VX, VY, VXm=None, VYm=None, mode="fixed",
     out["az_v"] = np.full((n, n_az), np.nan)
     out["az_pen"] = np.full((n, n_az), np.nan)
     out["names"] = names
+    for k in ("bg_vx", "bg_vy", "bg_vx_mmf", "bg_vy_mmf"):
+        out[k] = np.full(n, np.nan)
     px2 = PX_MM ** 2
     for k in range(n):
         if not tr["valid"][k]:
@@ -69,9 +91,17 @@ def sector_series(frames, tr, VX, VY, VXm=None, VYm=None, mode="fixed",
         own = tr["masks"][k]
         pen, umb = p & own, u & own
         bad = contamination_mask(frame, own)
-        vr = radial_velocity(VX[k], VY[k], cy, cx, rr)
-        vm = (radial_velocity(VXm[k], VYm[k], cy, cx, rr)
-              if VXm is not None else None)
+        quiet = ~ndimage.binary_dilation(u | p, iterations=QUIET_DILATE_PX)
+        bx, by = (background_flow(VX[k], VY[k], quiet)
+                  if remove_background else (0.0, 0.0))
+        out["bg_vx"][k], out["bg_vy"][k] = bx, by
+        vr = radial_velocity(VX[k] - bx, VY[k] - by, cy, cx, rr)
+        vm = None
+        if VXm is not None:
+            mx, my = (background_flow(VXm[k], VYm[k], quiet)
+                      if remove_background else (0.0, 0.0))
+            out["bg_vx_mmf"][k], out["bg_vy_mmf"][k] = mx, my
+            vm = radial_velocity(VXm[k] - mx, VYm[k] - my, cy, cx, rr)
         for j, nm in enumerate(names):
             sec = _in_sector(phid, *sectors[nm])
             out["a_pen"][k, j] = (pen & sec).sum() * px2

@@ -56,13 +56,21 @@ def main():
     ser = sector_series(d["frames"], tr, d["VX"], d["VY"], d["VXm"],
                         d["VYm"])
     res = sector_onsets(t, ser, tr["valid"])
+    g = np.isfinite(ser["bg_vx"])
+    if g.any():
+        print(f"background (quiet-Sun) flow removed before the split: "
+              f"v_x {ser['bg_vx'][g][0] * 1000:+.0f} -> "
+              f"{ser['bg_vx'][g][-1] * 1000:+.0f} m/s, v_y "
+              f"{ser['bg_vy'][g][0] * 1000:+.0f} -> "
+              f"{ser['bg_vy'][g][-1] * 1000:+.0f} m/s (first -> last epoch)")
     whole = analyse(np.load(out / "onset_series.npz"))
     pf0, pf1 = d["pf_lit"]
 
     np.savez(out / "sector_series.npz", t_h=t, valid=tr["valid"],
              names=np.array(ser["names"]), az_deg=ser["az_deg"],
              **{k: ser[k] for k in ("a_pen", "a_umb", "v", "v_mmf",
-                                    "frac_bad", "az_v", "az_pen")})
+                                    "frac_bad", "az_v", "az_pen", "bg_vx",
+                                    "bg_vy", "bg_vx_mmf", "bg_vy_mmf")})
     keep = {nm: {k: (v if not isinstance(v, (np.floating, np.bool_))
                      else v.item())
                  for k, v in r.items() if not k.startswith("_")}
@@ -101,7 +109,8 @@ def main():
     for row, (key, title, kw) in enumerate((
             ("az_pen", "penumbral area per 30 deg sector [Mm$^2$]",
              dict(cmap="Oranges", vmin=0)),
-            ("az_v", "annulus outflow per 30 deg sector [km/s]",
+            ("az_v", "annulus outflow per 30 deg sector, quiet-Sun "
+             "background flow removed [km/s]",
              dict(cmap="RdBu_r", vmin=-0.4, vmax=0.4)))):
         ax = fig.add_subplot(gs[row, :])
         m = np.where(tr["valid"][:, None], ser[key], np.nan).T
