@@ -40,7 +40,19 @@ def _pick_seed(frame, prefer_west=True, **seg_kwargs):
     xc = [ndimage.center_of_mass(ulab == b)[1] for b in cand]
     useed = ulab == cand[int(np.argmax(xc))]
     cy, cx = ndimage.center_of_mass(useed)
-    return lab == lab[int(round(cy)), int(round(cx))]
+    # the component that contains this umbra -- by its own pixels: the
+    # centre of mass of an irregular umbra (merging pores) can fall
+    # outside it, where lab is 0 (background)
+    comp = int(np.bincount(lab[useed]).argmax())
+    order = np.argsort(sizes)[::-1][:3]
+    top = ", ".join(
+        "{:.0f} px at ({:.0f}, {:.0f})".format(
+            sizes[i], *ndimage.center_of_mass(ulab == i + 1)[::-1])
+        for i in order)
+    print(f"  [track_spot] seed: umbra of {useed.sum()} px at x={cx:.0f}, "
+          f"y={cy:.0f} ({'western of the two largest' if prefer_west else 'largest'}"
+          f"); largest umbrae: {top}")
+    return lab == comp
 
 
 def seed_epoch(t_h, pf_end=np.nan, override=None, npz_path=None):
