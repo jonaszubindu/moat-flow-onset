@@ -335,3 +335,31 @@ on the threshold fraction or on the onset definition.
 Still to do: AR11150 FLCT was being re-run on the server at the time of
 this table; rerun its onset analysis and movie when it finishes (it is
 excluded either way, no pore phase).
+
+## L. Deprojection: validation on AR11554 (2026-10-09)
+
+AR11554dp is AR11554 rebuilt from its own FITS with every 45 s frame
+remapped onto the solar surface (Postel, 0.362 Mm/px) and limb-normalised
+(`moatflow/deproject.py`). The window starts at lon -40 deg (mu ~0.73);
+the onsets fall at ~-21 / -14 deg (mu ~0.90 / 0.93).
+
+| quantity                        | CCD (AR11554) | deprojected (AR11554dp) |
+|---------------------------------|---------------|-------------------------|
+| penumbra baseline -> mature     | 12 -> 284 Mm^2 | 13 -> 300 Mm^2         |
+| moat mature level               | 0.315 km/s    | 0.33 km/s               |
+| tracked epochs (seed)           | 88/94 (78 h)  | 88/94 (78 h)            |
+| penumbra / moat onset (40 %)    | 34.5 / 46.5 h | 34.5 / 46.5 h           |
+| lag, sweep 25/40/60 %           | +12; +14/+12/+10 | +12; +14/+12/+10     |
+| MMF onset                       | 46.5 h        | 46.5 h                  |
+| penumbra first departure        | 22.5 h        | 16.5 h                  |
+| first-appearance lag            | +17 h         | +24 h                   |
+| divergence in annulus           | -             | +4.31e-5 /s, 91 % diverging |
+
+The fraction-of-mature onsets are unchanged: a nearly constant scale
+factor cancels in a relative threshold. The first-appearance penumbra
+time moves 6 h earlier: around 16-22 h the area rises slowly through the
+absolute baseline + 20 Mm^2 level, and at mu ~0.85 the deprojected area
+is ~18 % larger, so it crosses earlier. Consequence: the main (40 %)
+result is robust to foreshortening within the 40 deg cut; first-
+appearance values of events that start near -40 deg carry a few-hour
+systematic.
