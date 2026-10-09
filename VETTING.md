@@ -469,3 +469,36 @@ removed). Moat-minus-penumbra lag per quadrant [h]:
    the 13 tracked spots only AR11610 is trailing (negative in the south,
    cycle 24; 40 Mm east of the opposite flux) -- also the weakest moat
    (0.08 km/s), excluded in section K.
+
+## P. Correction to O.1, and AR11630's spot (2026-10-10)
+
+O.1 said the penumbra forms first on the side facing the opposite
+polarity in all six used events. Murabito et al. 2018, Table 2 (first
+STABLE penumbral sector, lifetime > 10 granular lifetimes) classifies
+the same preceding spots as A (away from the opposite polarity) for
+AR11184, AR11243, AR11490, AR11640 and B (facing it) for AR11554: our
+30 deg-sector rule (3 h persistence) disagrees in 4/5. Schlichenmaier et
+al. 2010 (AR11024) describe individual filaments forming towards the
+opposite polarity that keep appearing and disappearing while flux
+emerges there; our rule most likely picks those and the grey pore
+material of the emergence zone. Our sector penumbra onsets are therefore
+NOT used to locate where the penumbra forms; Murabito's A/B is the
+reference. Read with it, the moat starts earliest on the side away from
+the opposite polarity (W quadrant lags -5, -10, -16, -10 h in the four
+A-type events), i.e. where the stable penumbra forms -- a hypothesis
+still to be tested directly (wedge on the A/B side) and with an
+annulus that follows the local spot edge (see below).
+
+Annulus caveat for sector results: the ring starts at r_spot + 1 Mm,
+r_spot being the equal-area radius. For a one-sided penumbra the real
+edge on the penumbral side lies outside that radius, so the ring there
+overlaps the young penumbra, whose LCT includes inward-moving penumbral
+grains. This can lower the measured outflow exactly where the penumbra
+grows. Whole-spot results are much less affected (the overlap is one
+sector of the ring).
+
+AR11630: Murabito et al. 2018 list only its FOLLOWING spot (A, 10 h);
+our tracker followed the PRECEDING spot (negative, north, cycle 24;
+section O.4). Our AR11630 lag (+14 h) is a valid pore-to-penumbra
+measurement of that spot, but the literature interval belongs to the
+other one.
