@@ -236,6 +236,13 @@ radiating outward** on the image.
 
 Optional, per event or once:
 
+`sector_analysis` splits the penumbral area and the annulus outflow
+(granulation and MMF) into W/N/E/S quadrants of the tracked spot and
+applies the whole-spot onset rule to each, for spots that form their
+penumbra on one side only; the quadrants sum exactly to the whole-spot
+area. Output: `quicklook/sector_comparison.png` (time-azimuth maps plus
+one panel per quadrant) and `quicklook/sector_onsets.json`.
+
 `moat_audit`, `moat_movie` and `verify_flct` seed the spot where
 `onset_analysis` did (stored as `seed_h` in `onset_series.npz`), so every
 product of an event shows the same track. The two movie scripts take
@@ -247,6 +254,7 @@ python scripts/vet_batch.py                    # SHARP + quicklook for every eve
 python scripts/verify_flct.py AR11490           # re-run only the FLCT checks
 python scripts/moat_movie.py AR11490           # slow explanatory tracking movie
 python scripts/moat_movie.py --all             # ... for every event with cube + flows
+python scripts/sector_analysis.py AR13010      # onsets per W/N/E/S quadrant (one-sided penumbrae)
 ```
 
 ## The sample result

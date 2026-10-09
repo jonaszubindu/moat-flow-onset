@@ -25,6 +25,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from moatflow.analysis.audit import audit_series, render_audit_movie
+from moatflow.analysis.eventdata import aligned_flows
 from moatflow.analysis.onsets import (FRACTION, FRACTION_SWEEP, analyse,
                                       first_persistent, smooth)
 from moatflow.analysis.spottrack import PX_MM, seed_epoch, track_spot
@@ -132,23 +133,12 @@ def main():
     mfile = out / "flct_hmi.M_45s_magnetogram_w3600s_s5px_k1.h5"
     v_mmf = None
     if mfile.exists():
-        # Pair magnetogram flow maps with the continuum epochs BY TIME:
-        # the M cube can miss frames the Ic cube has (AR13010: 6989 vs
-        # 7079), which drops or shifts hourly windows. Each M flow file's
-        # t_mid_s counts from its own cube's first frame (attr t0_isot).
-        with h5py.File(mfile) as f:
-            tm = f["t_mid_s"][:]
-            if "t0_isot" in f.attrs:
-                tm = tm + (datetime.fromisoformat(str(f.attrs["t0_isot"]))
-                           - t0).total_seconds()
-            vxm, vym = f["vx"][:], f["vy"][:]
-        j = np.array([int(np.argmin(np.abs(tm - t))) for t in t_mid])
-        ok = np.abs(tm[j] - t_mid) <= 900
-        if not ok.all():
-            print(f"MMF: {np.sum(~ok)} of {len(t_mid)} epochs have no "
+        # paired with the continuum epochs by time (cubes can differ in
+        # frame set, AR13010: 6989 vs 7079)
+        VXm, VYm, n_miss = aligned_flows(mfile, t_mid, t0)
+        if n_miss:
+            print(f"MMF: {n_miss} of {len(t_mid)} epochs have no "
                   "magnetogram flow map within 15 min (left empty)")
-        VXm = np.where(ok[:, None, None], vxm[j], np.nan)
-        VYm = np.where(ok[:, None, None], vym[j], np.nan)
         aud_m = audit_series(frames, tr, VXm, VYm, mode=args.annulus)
         v_mmf = aud_m["v_clean"]
 
