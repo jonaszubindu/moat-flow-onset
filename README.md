@@ -258,6 +258,17 @@ and, for several events, `sample_results/mmf_onsets.csv`,
 with every detection, the outward MMFs circled with their trails, and the
 rate curve with a time cursor -- to check by eye what was tracked.
 
+`radial_test` asks whether the moat is hidden before the penumbra.
+Test 1: azimuthal-mean granular v_r against distance from the spot edge
+(-4..25 Mm) per hour -- an inflow ring at the edge with outflow farther
+out before the onset (Rempel 2015; Deng et al. 2007) would mean the moat
+"appears" when the penumbra replaces the ring. Test 2: radial drift of
+long-lived (>= 1 h) tracked magnetic features over 30 min baselines on
+the same axes (needs `mmf_onset.py` output with positions), with and
+without the outward MMFs. Per event `quicklook/radial_test.png`; for the
+sample `sample_results/radial_test_stack.png` (aligned on the penumbra
+onset) and `radial_test_summary.txt`.
+
 `moat_audit`, `moat_movie` and `verify_flct` seed the spot where
 `onset_analysis` did (stored as `seed_h` in `onset_series.npz`), so every
 product of an event shows the same track. The two movie scripts take
@@ -271,6 +282,7 @@ python scripts/moat_movie.py AR11490           # slow explanatory tracking movie
 python scripts/moat_movie.py --all             # ... for every event with cube + flows
 python scripts/sector_analysis.py AR13010      # onsets per W/N/E/S quadrant (one-sided penumbrae)
 python scripts/mmf_onset.py --all               # MMF onset from tracked opposite-polarity features
+python scripts/radial_test.py --all             # radial flow structure vs time (after mmf_onset)
 ```
 
 ## SST/CRISP Milne-Eddington inversions
