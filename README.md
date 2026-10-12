@@ -257,6 +257,11 @@ and, for several events, `sample_results/mmf_onsets.csv`,
 `quicklook/mmf_tracking.mp4`: magnetogram and continuum around the spot
 with every detection, the outward MMFs circled with their trails, and the
 rate curve with a time cursor -- to check by eye what was tracked.
+`--v2` (outputs `*_v2`, version 1 untouched) counts every track seen in
+>= 3 frames and born within 10 Mm of the edge, classified only as moving
+outward or inward, and uses the outward-minus-inward excess per hour as
+the MMF signal: detection noise and random motions cancel, MMFs remain,
+convergence onto a pore shows as a negative excess.
 
 `radial_test` asks whether the moat is hidden before the penumbra.
 Test 1: azimuthal-mean granular v_r against distance from the spot edge

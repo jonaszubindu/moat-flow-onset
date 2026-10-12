@@ -12,6 +12,7 @@ Usage:
   python scripts/mmf_onset.py AR11490 [AR11184 ...] [--stride 4]
   python scripts/mmf_onset.py --all                      # + sample table
   python scripts/mmf_onset.py AR11490 --movie            # + tracking movie
+  python scripts/mmf_onset.py --all --v2 --movie         # version 2 (outputs *_v2)
 
 Writes data/<event>/mmf_tracks.npz, quicklook/mmf_onset.json and
 quicklook/mmf_onset.png (time-distance diagram of the tracks and the rate
@@ -22,6 +23,12 @@ the spot with every detected feature (green dots), outward MMFs circled
 with their last hour's trail (red opposite, blue same polarity), the
 excluded spot (yellow), edge / birth zone / limit circles, and the rate
 curve with a time cursor.
+
+--v2 (version 2, outputs *_v2, version 1 untouched): every track seen in
+>= 3 frames and born within 10 Mm of the edge counts, classified only as
+moving outward or inward; the MMF signal is outward minus inward per
+hour, so detection noise and random motions cancel. Inward tracks get a
+grey ring in the movie.
 """
 
 import argparse
@@ -62,8 +69,11 @@ def spot_polarity(d, mg, tm):
     return (1 if b > 0 else -1), b
 
 
-def run_event(cfg, eid, stride, movie=None):
-    """movie: None, or (frame step, fps) to also render mmf_tracking.mp4."""
+def run_event(cfg, eid, stride, movie=None, v2=False):
+    """movie: None, or (frame step, fps) to also render mmf_tracking.mp4.
+    v2: accept every track near the spot and use the outward-minus-inward
+    excess (mmf.classify_v2); outputs carry the suffix _v2."""
+    sfx = "_v2" if v2 else ""
     out = event_dir(cfg, eid)
     if not (out / M_CUBE).exists():
         raise SystemExit(f"{eid}: no {M_CUBE}")
@@ -100,14 +110,23 @@ def run_event(cfg, eid, stride, movie=None):
         tk.add(t, det, cy, cx, rsp)
         finfo.append((t, j, cy, cx, rsp, ke[i], cy - cy_e[i], cx - cx_e[i]))
     tracks = tk.result()
-    rows = mmf.classify(tracks, pol)
+    rows = mmf.classify_v2(tracks, pol) if v2 else mmf.classify(tracks, pol)
 
     t_sel = tm[sel] / 3600
     dt_h = np.median(np.diff(t_sel)) if len(t_sel) > 1 else 0.05
     covered = np.array([np.sum(np.abs(t_sel - t) < 0.5) >= 0.6 / dt_h for t in t_h])
     covered &= ok
-    rate_o = mmf.hourly_rate(rows, t_h, "opposite", covered)
-    rate_s = mmf.hourly_rate(rows, t_h, "same", covered)
+    counts = {}
+    if v2:
+        # excess of outward over inward movers: noise cancels, MMFs remain
+        for rp in ("opposite", "same"):
+            for dr in ("out", "in"):
+                counts[f"{rp}_{dr}"] = mmf.hourly_counts(rows, t_h, rp, dr, covered)
+        rate_o = counts["opposite_out"] - counts["opposite_in"]
+        rate_s = counts["same_out"] - counts["same_in"]
+    else:
+        rate_o = mmf.hourly_rate(rows, t_h, "opposite", covered)
+        rate_s = mmf.hourly_rate(rows, t_h, "same", covered)
     on_o, on_s = mmf.mmf_onset(t_h, rate_o), mmf.mmf_onset(t_h, rate_s)
     whole = analyse(np.load(out / "onset_series.npz"))
 
@@ -132,13 +151,19 @@ def run_event(cfg, eid, stride, movie=None):
            "lag_mmf_track_first_h": on_o["t_first"] - whole["t_pen_first_departure_h"],
            "lag_mmf_first_vs_pen_h": on_o["t_first"] - whole["t_pen_h"],
            "mmf_rate_baseline_per_h": on_o["zero"], "mmf_rate_mature_per_h": on_o["mature"],
-           "mmf_holds": on_o["holds"], "flags": flags,
+           "mmf_holds": on_o["holds"], "flags": flags, "version": 2 if v2 else 1,
+           "n_inward_opposite": int(sum(r.get("dir") == "in" and r["rel_pol"] == "opposite"
+                                        for r in rows)) if v2 else None,
+           "n_inward_same": int(sum(r.get("dir") == "in" and r["rel_pol"] == "same"
+                                    for r in rows)) if v2 else None,
            "median_v_kms": float(np.nanmedian([r["v_kms"] for r in rows
                                                if r["outward"] and r["rel_pol"] == "opposite"]))
            if n_out_o else np.nan}
 
     keys = ["t_birth", "life_min", "d_birth_mm", "v_kms", "disp_mm", "flux_Mx"]
-    np.savez(out / "mmf_tracks.npz", t_h=t_h, rate_opposite=rate_o, rate_same=rate_s,
+    np.savez(out / f"mmf_tracks{sfx}.npz", t_h=t_h, rate_opposite=rate_o, rate_same=rate_s,
+             **{f"count_{k}": v for k, v in counts.items()},
+             direction=np.array([str(r.get("dir")) for r in rows]),
              covered=covered, rel_pol=np.array([r["rel_pol"] for r in rows]),
              outward=np.array([r["outward"] for r in rows]),
              # all positions: track id, t [s], x, y [px], distance from edge [Mm]
@@ -149,19 +174,21 @@ def run_event(cfg, eid, stride, movie=None):
              pos_d=np.concatenate([tr["d_edge_mm"] for tr in tracks]),
              **{k: np.array([r[k] for r in rows], dtype=float) for k in keys})
     (out / "quicklook").mkdir(exist_ok=True)
-    with open(out / "quicklook" / "mmf_onset.json", "w") as f:
+    with open(out / "quicklook" / f"mmf_onset{sfx}.json", "w") as f:
         json.dump(res, f, indent=2, default=float)
-    plot_event(out / "quicklook" / "mmf_onset.png", eid, tracks, rows, t_h,
+    plot_event(out / "quicklook" / f"mmf_onset{sfx}.png", eid, tracks, rows, t_h,
                rate_o, rate_s, on_o, on_s, whole, d["pf_lit"],
-               np.load(out / "onset_series.npz"), res)
+               np.load(out / "onset_series.npz"), res, counts)
     if movie:
-        mp4 = out / "quicklook" / "mmf_tracking.mp4"
+        mp4 = out / "quicklook" / f"mmf_tracking{sfx}.mp4"
         render_movie(mp4, eid, d, mg, finfo, tracks, rows, t_h, on_o, on_s,
                      np.load(out / "onset_series.npz"), whole, movie[0], movie[1])
         print(f"   movie -> {mp4}")
-    print(f"{eid}: spot {'+' if pol > 0 else '-'} ({b_umb:+.0f} G), {len(sel)} frames "
-          f"at {dt_h * 60:.1f} min, {len(rows)} tracks, outward MMFs: "
-          f"{n_out_o} opposite / {n_out_s} same polarity")
+    print(f"{eid}{' [v2]' if v2 else ''}: spot {'+' if pol > 0 else '-'} ({b_umb:+.0f} G), "
+          f"{len(sel)} frames at {dt_h * 60:.1f} min, {len(rows)} tracks, outward: "
+          f"{n_out_o} opposite / {n_out_s} same polarity"
+          + (f"; inward: {res['n_inward_opposite']} opposite / {res['n_inward_same']} same"
+             if v2 else ""))
     print(f"   penumbra onset {whole['t_pen_h']:.1f} h | MMF (tracked, opposite) "
           f"onset {on_o['t']:.1f} h, first {on_o['t_first']:.1f} h | FLCT MMF "
           f"{whole['t_mmf_h']:.1f} h  ->  lag {res['lag_mmf_track_h']:+.1f} h")
@@ -186,7 +213,8 @@ def render_movie(mp4, eid, d, mg, finfo, tracks, rows, t_h, on_o, on_s, npz,
         for t, x, y in zip(tr["t"], tr["x"], tr["y"]):
             at.setdefault(float(t), []).append((k, x, y))
     cls = ["opp" if (r["outward"] and r["rel_pol"] == "opposite") else
-           "same" if r["outward"] else None for r in rows]
+           "same" if r["outward"] else "in" if r.get("dir") == "in" else None
+           for r in rows]
     half = (np.nanmax([f[4] for f in finfo]) * PX_MM + mmf.R_MAX_MM + 2) / PX_MM
     sample_ic = np.asarray(ic[len(t_ic) // 2], dtype=float)
     ic_kw = dict(cmap="gray", vmin=np.nanpercentile(sample_ic, 1),
@@ -194,9 +222,16 @@ def render_movie(mp4, eid, d, mg, finfo, tracks, rows, t_h, on_o, on_s, npz,
     fig = plt.figure(figsize=(13, 8.6))
     g = fig.add_gridspec(2, 2, height_ratios=[3.2, 1], hspace=0.22, wspace=0.08)
     aB, aI, aC = fig.add_subplot(g[0, 0]), fig.add_subplot(g[0, 1]), fig.add_subplot(g[1, :])
-    aC.plot(t_h, on_o["smooth"], color="crimson", lw=1.5, label="outward opposite-polarity MMFs / h")
-    aC.plot(t_h, on_s["smooth"], color="royalblue", lw=1.0, label="outward same-polarity MMFs / h")
-    aC.set_ylabel("MMF births / h")
+    v2 = any("dir" in r for r in rows)
+    aC.plot(t_h, on_o["smooth"], color="crimson", lw=1.5,
+            label="opposite polarity: outward - inward / h" if v2 else
+            "outward opposite-polarity MMFs / h")
+    aC.plot(t_h, on_s["smooth"], color="royalblue", lw=1.0,
+            label="same polarity: outward - inward / h" if v2 else
+            "outward same-polarity MMFs / h")
+    if v2:
+        aC.axhline(0, color="k", lw=0.5)
+    aC.set_ylabel("excess births / h" if v2 else "MMF births / h")
     a3 = aC.twinx()
     a3.plot(npz["t_h"], smooth(np.where(npz["valid"].astype(bool), npz["a_pen"], np.nan)),
             color="tab:orange", lw=1.2)
@@ -234,18 +269,21 @@ def render_movie(mp4, eid, d, mg, finfo, tracks, rows, t_h, on_o, on_s, npz,
                     c = cls[k]
                     if c is None:
                         continue
-                    col = "red" if c == "opp" else "deepskyblue"
+                    col = {"opp": "red", "same": "deepskyblue", "in": "0.75"}[c]
                     tt = tracks[k]["t"]
                     m = (tt <= t) & (tt >= t - 3600)
                     ax.plot(tracks[k]["x"][m], tracks[k]["y"][m], "-", color=col, lw=1.0)
-                    ax.plot(x, y, "o", mfc="none", mec=col, ms=8, mew=1.3)
+                    ax.plot(x, y, "o", mfc="none", mec=col, ms=8 if c != "in" else 6,
+                            mew=1.3 if c != "in" else 0.8)
                 ax.set_xlim(cx - half, cx + half)
                 ax.set_ylim(cy - half, cy + half)
                 ax.set_xticks([])
                 ax.set_yticks([])
             n_on = sum(1 for k, _, _ in here if cls[k] == "opp")
-            aB.set_title(f"magnetogram +-150 G: outward MMFs now {n_on} opposite (red), "
-                         f"{sum(1 for k, _, _ in here if cls[k] == 'same')} same (blue)", fontsize=9)
+            aB.set_title(f"magnetogram +-150 G: outward now {n_on} opposite (red), "
+                         f"{sum(1 for k, _, _ in here if cls[k] == 'same')} same (blue)"
+                         + (f", inward {sum(1 for k, _, _ in here if cls[k] == 'in')} (grey)"
+                            if v2 else ""), fontsize=9)
             aI.set_title("continuum, same overlays (yellow: excluded spot)", fontsize=9)
             cursor.set_xdata([t / 3600, t / 3600])
             fig.suptitle(f"{eid}  t = {t / 3600:.1f} h   outward opposite-polarity MMFs born so far: "
@@ -256,28 +294,44 @@ def render_movie(mp4, eid, d, mg, finfo, tracks, rows, t_h, on_o, on_s, npz,
 
 
 def plot_event(png, eid, tracks, rows, t_h, rate_o, rate_s, on_o, on_s, whole,
-               pf, npz, res):
+               pf, npz, res, counts=None):
+    v2 = bool(counts)
     fig, (a1, a2) = plt.subplots(2, 1, figsize=(13, 8.5), sharex=True,
                                  gridspec_kw={"height_ratios": [1.3, 1]})
     for tr, r in zip(tracks, rows):
         if not r["outward"]:
-            if r["rel_pol"] == "opposite" and r["life_min"] >= mmf.MIN_LIFE_MIN:
-                a1.plot(tr["t"] / 3600, tr["d_edge_mm"], color="0.85", lw=0.4)
+            if (r.get("dir") == "in" if v2 else
+                    (r["rel_pol"] == "opposite" and r["life_min"] >= mmf.MIN_LIFE_MIN)):
+                a1.plot(tr["t"] / 3600, tr["d_edge_mm"], color="0.8", lw=0.4)
             continue
         col = "crimson" if r["rel_pol"] == "opposite" else "royalblue"
         a1.plot(tr["t"] / 3600, tr["d_edge_mm"], color=col, lw=0.9, alpha=0.8)
     a1.axhline(0, color="k", lw=0.6)
     a1.set(ylim=(-mmf.EXCL_MM - 1, mmf.R_MAX_MM), ylabel="distance from spot edge [Mm]",
-           title=f"{eid}: tracked MMFs -- outward opposite polarity (red), outward "
-                 f"same polarity (blue), other opposite-polarity tracks (grey)")
+           title=(f"{eid} [v2]: every track born within {mmf.BIRTH_MM_V2:.0f} Mm, >= "
+                  f"{mmf.MIN_SAMPLES_V2} frames -- outward opposite (red), outward same "
+                  f"(blue), inward (grey)" if v2 else
+                  f"{eid}: tracked MMFs -- outward opposite polarity (red), outward "
+                  f"same polarity (blue), other opposite-polarity tracks (grey)"))
     a2.plot(t_h, rate_o, ".", color="crimson", ms=4, alpha=0.5)
-    a2.plot(t_h, on_o["smooth"], "-", color="crimson", lw=1.8,
-            label=f"outward opposite-polarity MMFs ({res['n_outward_opposite']})")
-    a2.plot(t_h, on_s["smooth"], "-", color="royalblue", lw=1.2,
-            label=f"outward same-polarity MMFs ({res['n_outward_same']})")
+    if v2:
+        a2.plot(t_h, smooth(counts["opposite_out"]), "--", color="crimson", lw=0.9,
+                label=f"opposite, outward ({res['n_outward_opposite']})")
+        a2.plot(t_h, smooth(counts["opposite_in"]), "--", color="0.5", lw=0.9,
+                label=f"opposite, inward ({res['n_inward_opposite']})")
+        a2.plot(t_h, on_o["smooth"], "-", color="crimson", lw=1.8,
+                label="opposite: outward - inward (MMF signal)")
+        a2.plot(t_h, on_s["smooth"], "-", color="royalblue", lw=1.2,
+                label="same: outward - inward")
+        a2.axhline(0, color="k", lw=0.6)
+    else:
+        a2.plot(t_h, on_o["smooth"], "-", color="crimson", lw=1.8,
+                label=f"outward opposite-polarity MMFs ({res['n_outward_opposite']})")
+        a2.plot(t_h, on_s["smooth"], "-", color="royalblue", lw=1.2,
+                label=f"outward same-polarity MMFs ({res['n_outward_same']})")
     if np.isfinite(on_o["thr"]):
         a2.axhline(on_o["thr"], color="crimson", lw=0.7, ls=":")
-    a2.set_ylabel("MMF births per hour")
+    a2.set_ylabel("births per hour" + (" (excess)" if v2 else ""))
     ax3 = a2.twinx()
     a = np.where(npz["valid"].astype(bool), npz["a_pen"], np.nan)
     ax3.plot(npz["t_h"], smooth(a), color="tab:orange", lw=1.4)
@@ -305,7 +359,7 @@ def plot_event(png, eid, tracks, rows, t_h, rate_o, rate_s, on_o, on_s, whole,
     plt.close(fig)
 
 
-def summary(cfg, ids):
+def summary(cfg, ids, sfx=""):
     rd = cfg["data_root"] / "sample_results"
     rd.mkdir(exist_ok=True)
     used = {}
@@ -314,7 +368,7 @@ def summary(cfg, ids):
         used = {r["event"]: r["used"] == "True" for r in csv.DictReader(open(f))}
     res = []
     for eid in ids:
-        j = event_dir(cfg, eid) / "quicklook" / "mmf_onset.json"
+        j = event_dir(cfg, eid) / "quicklook" / f"mmf_onset{sfx}.json"
         if j.exists():
             r = json.load(open(j))
             r["used"] = used.get(eid, False)
@@ -326,7 +380,7 @@ def summary(cfg, ids):
             "t_pen_first_h", "t_mmf_track_first_h", "lag_mmf_track_first_h",
             "lag_mmf_first_vs_pen_h",
             "t_mmf_flct_h", "t_moat_h", "mmf_holds", "flags"]
-    with open(rd / "mmf_onsets.csv", "w", newline="") as fh:
+    with open(rd / f"mmf_onsets{sfx}.csv", "w", newline="") as fh:
         w = csv.writer(fh)
         w.writerow(cols)
         for r in res:
@@ -335,7 +389,8 @@ def summary(cfg, ids):
 
     def fmt(x, sign=False):
         return "-" if x is None or not np.isfinite(x) else (f"{x:+.1f}" if sign else f"{x:.1f}")
-    print("MMF onset from tracked outward opposite-polarity features vs penumbra onset", file=buf)
+    print("MMF onset from tracked outward opposite-polarity features vs penumbra onset"
+          + ("  [v2: every track, outward-minus-inward excess]" if sfx else ""), file=buf)
     print("(lag = MMF - penumbra; 1st = first appearance of each; MMF1st-pen = MMF first\n"
           " appearance minus the 40 % penumbra onset)\n", file=buf)
     print(f"{'event':10s} used  nMMF  v[km/s]   pen   MMF    lag | pen1st MMF1st  lag | MMF1st-pen | FLCT-MMF  moat",
@@ -361,7 +416,7 @@ def summary(cfg, ids):
                   f"{sum(x < -2 for x in v)} before", file=buf)
     txt = buf.getvalue()
     print("\n" + txt)
-    (rd / "mmf_summary.txt").write_text(txt)
+    (rd / f"mmf_summary{sfx}.txt").write_text(txt)
 
     fig, ax = plt.subplots(figsize=(8, 0.45 * len(res) + 1.5))
     for i, r in enumerate(res):
@@ -374,9 +429,9 @@ def summary(cfg, ids):
     ax.set_xlabel("MMF - penumbra onset [h]  (o MMF 40 % onset, ^ MMF first appearance; grey: excluded/flagged)")
     ax.grid(alpha=0.3)
     fig.tight_layout()
-    fig.savefig(rd / "mmf_lags.png", dpi=130)
+    fig.savefig(rd / f"mmf_lags{sfx}.png", dpi=130)
     plt.close(fig)
-    print(f"-> {rd / 'mmf_onsets.csv'}, mmf_summary.txt, mmf_lags.png")
+    print(f"-> {rd / f'mmf_onsets{sfx}.csv'}, mmf_summary{sfx}.txt, mmf_lags{sfx}.png")
 
 
 def main():
@@ -389,15 +444,19 @@ def main():
     ap.add_argument("--movie-step", type=int, default=1,
                     help="movie uses every Nth tracked frame (1 -> 3 min steps)")
     ap.add_argument("--fps", type=int, default=12)
+    ap.add_argument("--v2", action="store_true",
+                    help="version 2: every track near the spot, outward-minus-inward "
+                         "excess; outputs *_v2 (version 1 untouched)")
     args = ap.parse_args()
     cfg = load_config()
     ids = resolve_events(args, cfg, ap)
     movie = (args.movie_step, args.fps) if args.movie else None
-    code = run_batch(lambda e: run_event(cfg, e, args.stride, movie), ids,
-                     out_name="mmf_onset.png", cfg=cfg,
+    sfx = "_v2" if args.v2 else ""
+    code = run_batch(lambda e: run_event(cfg, e, args.stride, movie, args.v2), ids,
+                     out_name=f"mmf_onset{sfx}.png", cfg=cfg,
                      skip_existing=args.skip_existing)
     if len(ids) > 1:
-        summary(cfg, ids)
+        summary(cfg, ids, sfx)
     sys.exit(code)
 
 

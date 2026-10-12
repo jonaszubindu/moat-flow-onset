@@ -189,6 +189,46 @@ def classify(tracks, spot_pol):
     return rows
 
 
+# --- version 2: accept every track near the spot, let noise cancel -------
+# v1 keeps only clear outward MMFs (>= 15 min, >= 1.5 Mm, >= 0.2 km/s),
+# which drops many short-lived features that look real in the movies. v2
+# takes every track seen in >= MIN_SAMPLES_V2 frames and born within
+# BIRTH_MM_V2 of the edge, and only asks which way it moves. The MMF signal
+# is the EXCESS of outward over inward movers: detection noise and random
+# motions go both ways and cancel; MMFs add outward movers; convergence
+# onto a pore gives a negative excess.
+MIN_SAMPLES_V2 = 3            # >= 6 min at 3 min cadence
+BIRTH_MM_V2 = 10.0
+
+
+def classify_v2(tracks, spot_pol):
+    """Like classify(), with r["dir"] in {"out", "in", None} and
+    r["outward"] = (dir == "out") for the plots and the movie."""
+    rows = []
+    for tr in tracks:
+        t, d = tr["t"], tr["d_edge_mm"]
+        n = len(t)
+        v = (np.polyfit(t, d, 1)[0] * 1e3) if n >= 3 else np.nan
+        step = (np.max(np.abs(np.diff(d)) / np.diff(t)) * 1e3) if n > 1 else 0.0
+        ok = (n >= MIN_SAMPLES_V2 and d[0] <= BIRTH_MM_V2 and np.isfinite(v)
+              and step <= MAX_STEP_KMS)
+        direction = ("out" if v > 0 else "in") if ok else None
+        rows.append({"t_birth": t[0], "life_min": (t[-1] - t[0]) / 60.0,
+                     "d_birth_mm": d[0], "v_kms": v, "disp_mm": d[-1] - d[0],
+                     "rel_pol": "opposite" if tr["pol"] != spot_pol else "same",
+                     "flux_Mx": float(np.median(tr["flux_Mx"])),
+                     "dir": direction, "outward": direction == "out"})
+    return rows
+
+
+def hourly_counts(rows, t_h, rel_pol, direction, covered):
+    """Births per hour of v2 tracks of one relative polarity and direction."""
+    tb = np.array([r["t_birth"] / 3600 for r in rows
+                   if r.get("dir") == direction and r["rel_pol"] == rel_pol])
+    c = np.array([np.sum(np.abs(tb - t) < 0.5) for t in t_h], dtype=float)
+    return np.where(covered, c, np.nan)
+
+
 def hourly_rate(rows, t_h, rel_pol, covered):
     """Births per hour of outward MMFs of one relative polarity, on the
     hourly epochs t_h (bin = epoch +- 0.5 h); NaN where not covered."""
