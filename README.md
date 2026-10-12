@@ -243,6 +243,18 @@ penumbra on one side only; the quadrants sum exactly to the whole-spot
 area. Output: `quicklook/sector_comparison.png` (time-azimuth maps plus
 one panel per quadrant) and `quicklook/sector_onsets.json`.
 
+`mmf_onset` tracks individual flux features in the 45 s magnetograms
+(every 4th frame, 3 min), keeps tracks born within 8 Mm of the spot edge
+that move outward (>= 1.5 Mm at >= 0.2 km/s, no step faster than 5 km/s,
+lifetime >= 15 min) and splits them by polarity relative to the umbra.
+The hourly birth rate of outward opposite-polarity MMFs goes through the
+usual onset rule (40 % of the way to the mature rate) plus a first
+appearance (at least one extra MMF per 3 h window, held 3 h); both are
+compared with the penumbra onset and the FLCT MMF onset. Output:
+`quicklook/mmf_onset.png` (time-distance diagram of all tracks + rates)
+and, for several events, `sample_results/mmf_onsets.csv`,
+`mmf_summary.txt`, `mmf_lags.png`.
+
 `moat_audit`, `moat_movie` and `verify_flct` seed the spot where
 `onset_analysis` did (stored as `seed_h` in `onset_series.npz`), so every
 product of an event shows the same track. The two movie scripts take
@@ -255,6 +267,7 @@ python scripts/verify_flct.py AR11490           # re-run only the FLCT checks
 python scripts/moat_movie.py AR11490           # slow explanatory tracking movie
 python scripts/moat_movie.py --all             # ... for every event with cube + flows
 python scripts/sector_analysis.py AR13010      # onsets per W/N/E/S quadrant (one-sided penumbrae)
+python scripts/mmf_onset.py --all               # MMF onset from tracked opposite-polarity features
 ```
 
 ## SST/CRISP Milne-Eddington inversions
