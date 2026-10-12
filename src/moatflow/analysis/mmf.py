@@ -118,41 +118,54 @@ def link(prev, cur):
     return parent, best
 
 
-def build_tracks(frames):
-    """frames: list of (t_s, (lab_pos, lab_neg, feats), cy, cx, r_spot_px).
-    Returns tracks: list of dicts with arrays t, x, y, d_edge_mm, flux."""
-    tracks, open_of_prev = [], {}
-    prev = None
-    for n, (t, det, cy, cx, rsp) in enumerate(frames):
+class Tracker:
+    """Incremental linking: add frames one by one, keeping only the previous
+    frame's label images in memory (all of them would be ~2 MB per frame and
+    polarity -- several GB for a long series)."""
+
+    def __init__(self):
+        self.tracks, self.open_prev, self.prev = [], {}, None
+
+    def add(self, t, det, cy, cx, rsp):
         feats = det[2]
-        open_now = {}
-        if prev is not None:
-            parent, ov = link(prev[1], det)
+        cont = {}
+        if self.prev is not None:
+            parent, ov = link(self.prev, det)
             # a parent continues into its child with the largest overlap
             claim = {}
             for ic, ip in enumerate(parent):
                 if ip >= 0 and (ip not in claim or ov[ic] > ov[claim[ip]]):
                     claim[ip] = ic
             cont = {ic: ip for ip, ic in claim.items()}
-        else:
-            cont = {}
+        open_now = {}
         for ic, f in enumerate(feats):
             d = np.hypot(f["x"] - cx, f["y"] - cy) * PX_MM - rsp * PX_MM
             rec = (t, f["x"], f["y"], d, f["flux_Mx"])
-            if ic in cont and cont[ic] in open_of_prev:
-                ti = open_of_prev[cont[ic]]
+            if ic in cont and cont[ic] in self.open_prev:
+                ti = self.open_prev[cont[ic]]
             else:
-                ti = len(tracks)
-                tracks.append({"pol": f["pol"], "rows": []})
-            tracks[ti]["rows"].append(rec)
+                ti = len(self.tracks)
+                self.tracks.append({"pol": f["pol"], "rows": []})
+            self.tracks[ti]["rows"].append(rec)
             open_now[ic] = ti
-        open_of_prev, prev = open_now, (t, det)
-    out = []
-    for tr in tracks:
-        a = np.array(tr["rows"])
-        out.append({"pol": tr["pol"], "t": a[:, 0], "x": a[:, 1], "y": a[:, 2],
-                    "d_edge_mm": a[:, 3], "flux_Mx": a[:, 4]})
-    return out
+        self.open_prev, self.prev = open_now, det
+
+    def result(self):
+        """Tracks as dicts with arrays t, x, y, d_edge_mm, flux_Mx."""
+        out = []
+        for tr in self.tracks:
+            a = np.array(tr["rows"])
+            out.append({"pol": tr["pol"], "t": a[:, 0], "x": a[:, 1], "y": a[:, 2],
+                        "d_edge_mm": a[:, 3], "flux_Mx": a[:, 4]})
+        return out
+
+
+def build_tracks(frames):
+    """frames: iterable of (t_s, (lab_pos, lab_neg, feats), cy, cx, r_spot_px)."""
+    tk = Tracker()
+    for t, det, cy, cx, rsp in frames:
+        tk.add(t, det, cy, cx, rsp)
+    return tk.result()
 
 
 def classify(tracks, spot_pol):

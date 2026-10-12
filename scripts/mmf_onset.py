@@ -11,11 +11,17 @@ the spot, its epochs and the penumbra onset come from there.
 Usage:
   python scripts/mmf_onset.py AR11490 [AR11184 ...] [--stride 4]
   python scripts/mmf_onset.py --all                      # + sample table
+  python scripts/mmf_onset.py AR11490 --movie            # + tracking movie
 
 Writes data/<event>/mmf_tracks.npz, quicklook/mmf_onset.json and
 quicklook/mmf_onset.png (time-distance diagram of the tracks and the rate
 curves with the penumbral area and onsets); with several events also
-sample_results/mmf_onsets.csv, mmf_summary.txt and mmf_lags.png.
+sample_results/mmf_onsets.csv, mmf_summary.txt and mmf_lags.png. With
+--movie: quicklook/mmf_tracking.mp4 -- magnetogram and continuum around
+the spot with every detected feature (green dots), outward MMFs circled
+with their last hour's trail (red opposite, blue same polarity), the
+excluded spot (yellow), edge / birth zone / limit circles, and the rate
+curve with a time cursor.
 """
 
 import argparse
@@ -56,7 +62,8 @@ def spot_polarity(d, mg, tm):
     return (1 if b > 0 else -1), b
 
 
-def run_event(cfg, eid, stride):
+def run_event(cfg, eid, stride, movie=None):
+    """movie: None, or (frame step, fps) to also render mmf_tracking.mp4."""
     out = event_dir(cfg, eid)
     if not (out / M_CUBE).exists():
         raise SystemExit(f"{eid}: no {M_CUBE}")
@@ -77,7 +84,8 @@ def run_event(cfg, eid, stride):
            if te[0] - 1800 <= tm[j] <= te[-1] + 1800
            and np.min(np.abs(te - tm[j])) <= 5400]
     excl_it = max(1, int(round(mmf.EXCL_MM / PX_MM)))
-    frames = []
+    tk = mmf.Tracker()
+    finfo = []                     # light per-frame record, for the movie
     for j in sel:
         t = tm[j]
         cy, cx = np.interp(t, te, cy_e), np.interp(t, te, cx_e)
@@ -89,8 +97,9 @@ def run_event(cfg, eid, stride):
         excl = ndimage.binary_dilation(mask, iterations=excl_it)
         B = np.asarray(mg[j], dtype=float)
         det = mmf.detect(B, excl, cy, cx, rsp, mmf.frame_noise(B))
-        frames.append((t, det, cy, cx, rsp))
-    tracks = mmf.build_tracks(frames)
+        tk.add(t, det, cy, cx, rsp)
+        finfo.append((t, j, cy, cx, rsp, ke[i], cy - cy_e[i], cx - cx_e[i]))
+    tracks = tk.result()
     rows = mmf.classify(tracks, pol)
 
     t_sel = tm[sel] / 3600
@@ -132,6 +141,12 @@ def run_event(cfg, eid, stride):
     np.savez(out / "mmf_tracks.npz", t_h=t_h, rate_opposite=rate_o, rate_same=rate_s,
              covered=covered, rel_pol=np.array([r["rel_pol"] for r in rows]),
              outward=np.array([r["outward"] for r in rows]),
+             # all positions: track id, t [s], x, y [px], distance from edge [Mm]
+             pos_track=np.concatenate([np.full(len(tr["t"]), i) for i, tr in enumerate(tracks)]),
+             pos_t=np.concatenate([tr["t"] for tr in tracks]),
+             pos_x=np.concatenate([tr["x"] for tr in tracks]),
+             pos_y=np.concatenate([tr["y"] for tr in tracks]),
+             pos_d=np.concatenate([tr["d_edge_mm"] for tr in tracks]),
              **{k: np.array([r[k] for r in rows], dtype=float) for k in keys})
     (out / "quicklook").mkdir(exist_ok=True)
     with open(out / "quicklook" / "mmf_onset.json", "w") as f:
@@ -139,6 +154,11 @@ def run_event(cfg, eid, stride):
     plot_event(out / "quicklook" / "mmf_onset.png", eid, tracks, rows, t_h,
                rate_o, rate_s, on_o, on_s, whole, d["pf_lit"],
                np.load(out / "onset_series.npz"), res)
+    if movie:
+        mp4 = out / "quicklook" / "mmf_tracking.mp4"
+        render_movie(mp4, eid, d, mg, finfo, tracks, rows, t_h, on_o, on_s,
+                     np.load(out / "onset_series.npz"), whole, movie[0], movie[1])
+        print(f"   movie -> {mp4}")
     print(f"{eid}: spot {'+' if pol > 0 else '-'} ({b_umb:+.0f} G), {len(sel)} frames "
           f"at {dt_h * 60:.1f} min, {len(rows)} tracks, outward MMFs: "
           f"{n_out_o} opposite / {n_out_s} same polarity")
@@ -148,6 +168,91 @@ def run_event(cfg, eid, stride):
     for fl in flags:
         print(f"   flag: {fl}")
     return res
+
+
+def render_movie(mp4, eid, d, mg, finfo, tracks, rows, t_h, on_o, on_s, npz,
+                 whole, step, fps):
+    from matplotlib.animation import FFMpegWriter
+    from matplotlib.patches import Circle
+    from moatflow.batch import CUBE_IC
+    from moatflow.cubes import load_cube as _lc
+    from moatflow.viz import parse_times
+    ic, ic_iso, _ = _lc(d["out"] / CUBE_IC)
+    t_ic = parse_times(ic_iso)
+    tr_masks = d["tr"]["masks"]
+    # frame time -> [(track index, x, y)]
+    at = {}
+    for k, tr in enumerate(tracks):
+        for t, x, y in zip(tr["t"], tr["x"], tr["y"]):
+            at.setdefault(float(t), []).append((k, x, y))
+    cls = ["opp" if (r["outward"] and r["rel_pol"] == "opposite") else
+           "same" if r["outward"] else None for r in rows]
+    half = (np.nanmax([f[4] for f in finfo]) * PX_MM + mmf.R_MAX_MM + 2) / PX_MM
+    sample_ic = np.asarray(ic[len(t_ic) // 2], dtype=float)
+    ic_kw = dict(cmap="gray", vmin=np.nanpercentile(sample_ic, 1),
+                 vmax=np.nanpercentile(sample_ic, 99.5), origin="lower")
+    fig = plt.figure(figsize=(13, 8.6))
+    g = fig.add_gridspec(2, 2, height_ratios=[3.2, 1], hspace=0.22, wspace=0.08)
+    aB, aI, aC = fig.add_subplot(g[0, 0]), fig.add_subplot(g[0, 1]), fig.add_subplot(g[1, :])
+    aC.plot(t_h, on_o["smooth"], color="crimson", lw=1.5, label="outward opposite-polarity MMFs / h")
+    aC.plot(t_h, on_s["smooth"], color="royalblue", lw=1.0, label="outward same-polarity MMFs / h")
+    aC.set_ylabel("MMF births / h")
+    a3 = aC.twinx()
+    a3.plot(npz["t_h"], smooth(np.where(npz["valid"].astype(bool), npz["a_pen"], np.nan)),
+            color="tab:orange", lw=1.2)
+    a3.set_ylabel("penumbra [Mm$^2$]", color="tab:orange")
+    for tt, col, ls in ((whole["t_pen_h"], "tab:orange", "--"), (on_o["t"], "crimson", "--"),
+                        (on_o["t_first"], "crimson", ":")):
+        if np.isfinite(tt):
+            aC.axvline(tt, color=col, ls=ls, lw=1.0)
+    cursor = aC.axvline(np.nan, color="k", lw=1.2)
+    aC.legend(fontsize=7, loc="upper left")
+    aC.set_xlabel("hours since start")
+    aC.grid(alpha=0.3)
+    births = np.array([r["t_birth"] for r, c in zip(rows, cls) if c == "opp"])
+    writer = FFMpegWriter(fps=fps, bitrate=5000)
+    with writer.saving(fig, str(mp4), dpi=100):
+        for t, j, cy, cx, rsp, ke, sy, sx in finfo[::step]:
+            B = np.asarray(mg[j], dtype=float)
+            I = np.asarray(ic[int(np.argmin(np.abs(t_ic - t)))], dtype=float)
+            mask = ndimage.shift(tr_masks[ke].astype(float), (sy, sx), order=0) > 0.5
+            excl = ndimage.binary_dilation(mask, iterations=max(1, int(round(mmf.EXCL_MM / PX_MM))))
+            here = at.get(float(t), [])
+            for ax, img, kw in ((aB, B, dict(cmap="gray", vmin=-150, vmax=150, origin="lower")),
+                                (aI, I, ic_kw)):
+                ax.clear()
+                ax.imshow(img, interpolation="nearest", **kw)
+                ax.contour(excl, levels=[0.5], colors="gold", linewidths=0.8)
+                for r_mm, ls, col in ((0, "--", "w"), (mmf.BIRTH_MM, ":", "orange"),
+                                      (mmf.R_MAX_MM, ":", "0.6")):
+                    ax.add_patch(Circle((cx, cy), rsp + r_mm / PX_MM, fill=False,
+                                        ls=ls, color=col, lw=0.9))
+                if here:
+                    xs, ys = zip(*[(x, y) for _, x, y in here])
+                    ax.plot(xs, ys, ".", color="lime", ms=2.5, alpha=0.7)
+                for k, x, y in here:
+                    c = cls[k]
+                    if c is None:
+                        continue
+                    col = "red" if c == "opp" else "deepskyblue"
+                    tt = tracks[k]["t"]
+                    m = (tt <= t) & (tt >= t - 3600)
+                    ax.plot(tracks[k]["x"][m], tracks[k]["y"][m], "-", color=col, lw=1.0)
+                    ax.plot(x, y, "o", mfc="none", mec=col, ms=8, mew=1.3)
+                ax.set_xlim(cx - half, cx + half)
+                ax.set_ylim(cy - half, cy + half)
+                ax.set_xticks([])
+                ax.set_yticks([])
+            n_on = sum(1 for k, _, _ in here if cls[k] == "opp")
+            aB.set_title(f"magnetogram +-150 G: outward MMFs now {n_on} opposite (red), "
+                         f"{sum(1 for k, _, _ in here if cls[k] == 'same')} same (blue)", fontsize=9)
+            aI.set_title("continuum, same overlays (yellow: excluded spot)", fontsize=9)
+            cursor.set_xdata([t / 3600, t / 3600])
+            fig.suptitle(f"{eid}  t = {t / 3600:.1f} h   outward opposite-polarity MMFs born so far: "
+                         f"{int(np.sum(births <= t))}   (circles: spot edge, +{mmf.BIRTH_MM:.0f} Mm "
+                         f"birth zone, +{mmf.R_MAX_MM:.0f} Mm limit)", fontsize=10, y=0.995)
+            writer.grab_frame()
+    plt.close(fig)
 
 
 def plot_event(png, eid, tracks, rows, t_h, rate_o, rate_s, on_o, on_s, whole,
@@ -279,10 +384,16 @@ def main():
     add_event_args(ap)
     ap.add_argument("--stride", type=int, default=4,
                     help="use every Nth 45 s magnetogram (4 -> 3 min)")
+    ap.add_argument("--movie", action="store_true",
+                    help="also render quicklook/mmf_tracking.mp4")
+    ap.add_argument("--movie-step", type=int, default=1,
+                    help="movie uses every Nth tracked frame (1 -> 3 min steps)")
+    ap.add_argument("--fps", type=int, default=12)
     args = ap.parse_args()
     cfg = load_config()
     ids = resolve_events(args, cfg, ap)
-    code = run_batch(lambda e: run_event(cfg, e, args.stride), ids,
+    movie = (args.movie_step, args.fps) if args.movie else None
+    code = run_batch(lambda e: run_event(cfg, e, args.stride, movie), ids,
                      out_name="mmf_onset.png", cfg=cfg,
                      skip_existing=args.skip_existing)
     if len(ids) > 1:

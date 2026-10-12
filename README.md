@@ -253,7 +253,10 @@ appearance (at least one extra MMF per 3 h window, held 3 h); both are
 compared with the penumbra onset and the FLCT MMF onset. Output:
 `quicklook/mmf_onset.png` (time-distance diagram of all tracks + rates)
 and, for several events, `sample_results/mmf_onsets.csv`,
-`mmf_summary.txt`, `mmf_lags.png`.
+`mmf_summary.txt`, `mmf_lags.png`. `--movie` adds
+`quicklook/mmf_tracking.mp4`: magnetogram and continuum around the spot
+with every detection, the outward MMFs circled with their trails, and the
+rate curve with a time cursor -- to check by eye what was tracked.
 
 `moat_audit`, `moat_movie` and `verify_flct` seed the spot where
 `onset_analysis` did (stored as `seed_h` in `onset_series.npz`), so every
