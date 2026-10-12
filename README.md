@@ -270,7 +270,9 @@ out before the onset (Rempel 2015; Deng et al. 2007) would mean the moat
 "appears" when the penumbra replaces the ring. Test 2: radial drift of
 long-lived (>= 1 h) tracked magnetic features over 30 min baselines on
 the same axes (needs `mmf_onset.py` output with positions), with and
-without the outward MMFs. Per event `quicklook/radial_test.png`; for the
+without the outward MMFs (`--tracks v2`: from `mmf_tracks_v2.npz`, every
+track >= 3 frames with its fitted drift, "without MMFs" = without tracks
+meeting the v1 criteria; outputs `*_v2`). Per event `quicklook/radial_test.png`; for the
 sample `sample_results/radial_test_stack.png` (aligned on the penumbra
 onset) and `radial_test_summary.txt`.
 

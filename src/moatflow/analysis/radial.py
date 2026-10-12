@@ -98,6 +98,39 @@ def magnetic_drift_map(npz, t_h, exclude_outward_mmf=False):
         return np.where(cnts >= 3, sums / cnts, np.nan), cnts, sums
 
 
+def v1_mmf_mask(npz):
+    """Tracks meeting the version-1 MMF criteria, recomputed from the saved
+    per-track values (works on version-2 files; the link-jump filter is not
+    re-checked)."""
+    from . import mmf
+    return ((npz["life_min"] >= mmf.MIN_LIFE_MIN) & (npz["d_birth_mm"] <= mmf.BIRTH_MM)
+            & (npz["disp_mm"] >= mmf.MIN_DISP_MM) & (npz["v_kms"] >= mmf.MIN_V_KMS))
+
+
+def magnetic_drift_map_fit(npz, t_h, min_samples=3, exclude_v1_mmf=False):
+    """Version-2 style test 2: every track with >= min_samples positions
+    contributes ONE drift value (its fitted radial speed, npz v_kms) at its
+    middle time and middle distance -- short tracks cannot use 30 min
+    baselines; noise averages out over many tracks. Returns (mean, counts,
+    sums) on the hourly epochs x distance bins."""
+    tid, t, dd = npz["pos_track"], npz["pos_t"], npz["pos_d"]
+    v = npz["v_kms"]
+    skip = v1_mmf_mask(npz) if exclude_v1_mmf else np.zeros(len(v), bool)
+    n = np.bincount(tid, minlength=len(v))
+    tm = np.bincount(tid, weights=t, minlength=len(v)) / np.maximum(n, 1) / 3600
+    dm = np.bincount(tid, weights=dd, minlength=len(v)) / np.maximum(n, 1)
+    use = (n >= min_samples) & np.isfinite(v) & ~skip
+    ki = np.clip(np.round(np.interp(tm, t_h, np.arange(len(t_h)))).astype(int), 0, len(t_h) - 1)
+    bi = np.digitize(dm, D_EDGES) - 1
+    g = use & (bi >= 0) & (bi < len(D_MID)) & (np.abs(t_h[ki] - tm) <= 0.5)
+    sums = np.zeros((len(t_h), len(D_MID)))
+    cnts = np.zeros_like(sums)
+    np.add.at(sums, (ki[g], bi[g]), v[g])
+    np.add.at(cnts, (ki[g], bi[g]), 1)
+    with np.errstate(invalid="ignore", divide="ignore"):
+        return np.where(cnts >= 3, sums / cnts, np.nan), cnts, sums
+
+
 def window_weighted(t_rel, sums, cnts, windows=WINDOWS, min_count=10):
     """Count-weighted mean drift profile in each window (all measurements
     in the window and distance bin pooled)."""

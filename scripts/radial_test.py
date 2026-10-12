@@ -16,6 +16,7 @@ could drift outward before the granular moat appears.
 Usage:
   python scripts/radial_test.py AR11490 [AR11184 ...]
   python scripts/radial_test.py --all          # + stack over the used events
+  python scripts/radial_test.py --all --tracks v2   # test 2 from mmf_tracks_v2.npz
 
 Per event: radial_test.npz, quicklook/radial_test.json and
 quicklook/radial_test.png. With several events:
@@ -46,7 +47,12 @@ from moatflow.config import event_dir, load_config
 WCOL = {"pre": "tab:blue", "onset": "tab:green", "post": "tab:red"}
 
 
-def run_event(cfg, eid):
+def run_event(cfg, eid, tracks="v1"):
+    """tracks: 'v1' -- mmf_tracks.npz, long-lived features, 30 min baselines,
+    'without MMFs' drops v1 outward MMFs; 'v2' -- mmf_tracks_v2.npz, every
+    track >= 3 frames with its fitted drift, 'without MMFs' drops tracks
+    meeting the v1 MMF criteria. Outputs of 'v2' carry the suffix _v2."""
+    sfx = "_v2" if tracks == "v2" else ""
     out = event_dir(cfg, eid)
     if not (out / "onset_series.npz").exists():
         raise SystemExit(f"{eid}: run onset_analysis.py first")
@@ -56,19 +62,22 @@ def run_event(cfg, eid):
     gmap = R.granular_map(d["frames"], d["tr"], d["VX"], d["VY"])
     on = analyse(np.load(out / "onset_series.npz"))
     t_pen = on["t_pen_h"]
-    mfile = out / "mmf_tracks.npz"
+    mfile = out / f"mmf_tracks{sfx}.npz"
     mag = mag_x = None
     if mfile.exists():
         mt = np.load(mfile)
-        if "pos_track" in mt.files:
+        if "pos_track" in mt.files and tracks == "v2":
+            mag, mag_n, mag_s = R.magnetic_drift_map_fit(mt, t_h)
+            mag_x, magx_n, magx_s = R.magnetic_drift_map_fit(mt, t_h, exclude_v1_mmf=True)
+        elif "pos_track" in mt.files:
             mag, mag_n, mag_s = R.magnetic_drift_map(mt, t_h)
             mag_x, magx_n, magx_s = R.magnetic_drift_map(mt, t_h, exclude_outward_mmf=True)
         else:
             print(f"  {eid}: mmf_tracks.npz predates saved positions -- rerun "
                   "mmf_onset.py for test 2")
     res = {"event": eid, "t_pen_h": t_pen, "t_moat_h": on["t_moat_h"],
-           "has_magnetic": mag is not None}
-    np.savez(out / "radial_test.npz", t_h=t_h, d_mid=R.D_MID, granular=gmap,
+           "has_magnetic": mag is not None, "tracks": tracks}
+    np.savez(out / f"radial_test{sfx}.npz", t_h=t_h, d_mid=R.D_MID, granular=gmap,
              magnetic=mag if mag is not None else np.full_like(gmap, np.nan),
              magnetic_no_mmf=mag_x if mag_x is not None else np.full_like(gmap, np.nan),
              mag_sums=mag_s if mag is not None else np.zeros_like(gmap),
@@ -90,12 +99,12 @@ def run_event(cfg, eid):
         res["inflow_ring_pre"] = bool(np.isfinite(pre_n) and np.isfinite(pre_o)
                                       and pre_n < 0 < pre_o)
     (out / "quicklook").mkdir(exist_ok=True)
-    with open(out / "quicklook" / "radial_test.json", "w") as f:
+    with open(out / "quicklook" / f"radial_test{sfx}.json", "w") as f:
         json.dump(res, f, indent=2, default=float)
-    plot_event(out / "quicklook" / "radial_test.png", eid, t_h, gmap, mag, mag_x,
+    plot_event(out / "quicklook" / f"radial_test{sfx}.png", eid, t_h, gmap, mag, mag_x,
                t_pen, on["t_moat_h"], d["pf_lit"],
-               (mag_s, mag_n, magx_s, magx_n) if mag is not None else None)
-    print(f"{eid}: penumbra onset {t_pen:.1f} h | granular v_r near edge (0-3 Mm) "
+               (mag_s, mag_n, magx_s, magx_n) if mag is not None else None, tracks)
+    print(f"{eid}{' [v2 tracks]' if sfx else ''}: penumbra onset {t_pen:.1f} h | granular v_r near edge (0-3 Mm) "
           f"pre {res.get('gran_near_pre', np.nan):+.2f}, post {res.get('gran_near_post', np.nan):+.2f} km/s; "
           f"5-12 Mm pre {res.get('gran_outer_pre', np.nan):+.2f}, post {res.get('gran_outer_post', np.nan):+.2f}"
           + (f" | magnetic drift 2-15 Mm pre {res.get('mag_pre', np.nan):+.2f}, "
@@ -121,7 +130,8 @@ def _map(ax, x, m, title, t_marks, pf=None):
     return im
 
 
-def plot_event(png, eid, t_h, gmap, mag, mag_x, t_pen, t_moat, pf, magsc=None):
+def plot_event(png, eid, t_h, gmap, mag, mag_x, t_pen, t_moat, pf, magsc=None,
+               tracks="v1"):
     edges_t = np.r_[t_h - 0.5, t_h[-1] + 0.5]
     rows = 3 if mag is not None else 2
     fig, axs = plt.subplots(rows, 1, figsize=(12, 3.4 * rows + 0.6), sharex=False)
@@ -130,8 +140,11 @@ def plot_event(png, eid, t_h, gmap, mag, mag_x, t_pen, t_moat, pf, magsc=None):
               marks, pf)
     fig.colorbar(im, ax=axs[0], pad=0.01, label="v$_r$ [km/s]")
     if mag is not None:
-        im = _map(axs[1], edges_t, mag, "test 2: radial drift of long-lived (>= 1 h) magnetic "
-                  "features, 30 min baselines", marks, pf)
+        im = _map(axs[1], edges_t, mag,
+                  "test 2 (v2 tracks): fitted radial drift of every magnetic feature tracked "
+                  ">= 3 frames, one value per track" if tracks == "v2" else
+                  "test 2: radial drift of long-lived (>= 1 h) magnetic features, 30 min "
+                  "baselines", marks, pf)
         fig.colorbar(im, ax=axs[1], pad=0.01, label="drift [km/s]")
     for ax in axs[:-1]:
         ax.set_xlabel("hours since start")
@@ -153,7 +166,8 @@ def plot_event(png, eid, t_h, gmap, mag, mag_x, t_pen, t_moat, pf, magsc=None):
     ax.set(xlabel="distance from spot edge [Mm]", ylabel="v$_r$ / drift [km/s]",
            ylim=(-0.6, 0.6), title="profiles in windows around the penumbra onset "
            "(magnetic: count-weighted, bins with >= 10 measurements; dotted: without "
-           "outward MMFs; grey: 0-3 Mm)")
+           + ("tracks meeting the v1 MMF criteria" if tracks == "v2" else "outward MMFs")
+           + "; grey: 0-3 Mm)")
     ax.legend(fontsize=7, ncol=2)
     ax.grid(alpha=0.3)
     fig.tight_layout()
@@ -161,7 +175,7 @@ def plot_event(png, eid, t_h, gmap, mag, mag_x, t_pen, t_moat, pf, magsc=None):
     plt.close(fig)
 
 
-def summary(cfg, ids):
+def summary(cfg, ids, sfx=""):
     rd = cfg["data_root"] / "sample_results"
     rd.mkdir(exist_ok=True)
     used = {}
@@ -171,7 +185,7 @@ def summary(cfg, ids):
     res, gm, mm, mx, trs, msn = [], [], [], [], [], []
     for eid in ids:
         out = event_dir(cfg, eid)
-        j, z = out / "quicklook" / "radial_test.json", out / "radial_test.npz"
+        j, z = out / "quicklook" / f"radial_test{sfx}.json", out / f"radial_test{sfx}.npz"
         if not (j.exists() and z.exists()):
             continue
         r = json.load(open(j))
@@ -192,9 +206,13 @@ def summary(cfg, ids):
     def fm(x):
         return "   -  " if x is None or not np.isfinite(x) else f"{x:+.2f} "
     print("Radial flow structure around the penumbra onset [km/s]; windows pre "
-          "-14..-2 h, post +6..+18 h", file=buf)
+          "-14..-2 h, post +6..+18 h"
+          + ("  [test 2 from v2 tracks: every track >= 3 frames, fitted drift; "
+             "noMMF = without v1-criteria MMFs]" if sfx else ""), file=buf)
     print("granular v_r near the edge (0-3 Mm) and farther out (5-12 Mm); magnetic "
-          "drift 2-15 Mm (all long-lived features / without outward MMFs)\n", file=buf)
+          "drift 2-15 Mm "
+          + ("(every track >= 3 frames / without v1-criteria MMFs)" if sfx else
+             "(all long-lived features / without outward MMFs)") + "\n", file=buf)
     print(f"{'event':10s} used  near pre  outer pre | near post outer post | "
           f"mag pre  mag post | noMMF pre noMMF post | inflow ring pre?", file=buf)
     for r in res:
@@ -222,7 +240,7 @@ def summary(cfg, ids):
                       f"(range {min(v):+.2f} .. {max(v):+.2f}, n = {len(v)})", file=buf)
     txt = buf.getvalue()
     print("\n" + txt)
-    (rd / "radial_test_summary.txt").write_text(txt)
+    (rd / f"radial_test_summary{sfx}.txt").write_text(txt)
 
     if not gm:
         return
@@ -262,21 +280,27 @@ def summary(cfg, ids):
     ax.legend(fontsize=7, ncol=2)
     ax.grid(alpha=0.3)
     fig.tight_layout()
-    fig.savefig(rd / "radial_test_stack.png", dpi=120)
+    fig.savefig(rd / f"radial_test_stack{sfx}.png", dpi=120)
     plt.close(fig)
-    print(f"-> {rd / 'radial_test_summary.txt'}, radial_test_stack.png")
+    print(f"-> {rd / f'radial_test_summary{sfx}.txt'}, radial_test_stack{sfx}.png")
 
 
 def main():
     ap = argparse.ArgumentParser()
     add_event_args(ap)
+    ap.add_argument("--tracks", choices=["v1", "v2"], default="v1",
+                    help="magnetic tracks for test 2: v1 (mmf_tracks.npz, long-lived, "
+                         "30 min baselines) or v2 (mmf_tracks_v2.npz, every track, "
+                         "fitted drift; outputs *_v2)")
     args = ap.parse_args()
     cfg = load_config()
     ids = resolve_events(args, cfg, ap)
-    code = run_batch(lambda e: run_event(cfg, e), ids, out_name="radial_test.png",
-                     cfg=cfg, skip_existing=args.skip_existing)
+    sfx = "_v2" if args.tracks == "v2" else ""
+    code = run_batch(lambda e: run_event(cfg, e, args.tracks), ids,
+                     out_name=f"radial_test{sfx}.png", cfg=cfg,
+                     skip_existing=args.skip_existing)
     if len(ids) > 1:
-        summary(cfg, ids)
+        summary(cfg, ids, sfx)
     sys.exit(code)
 
 
