@@ -257,6 +257,13 @@ python scripts/moat_movie.py --all             # ... for every event with cube +
 python scripts/sector_analysis.py AR13010      # onsets per W/N/E/S quadrant (one-sided penumbrae)
 ```
 
+## SST/CRISP Milne-Eddington inversions
+
+The ME inversion tools for SST/CRISP Fe I 6302 cubes (AR13010 and
+comparison datasets) live in their own repository,
+[sst-milne](https://github.com/jonaszubindu/sst-milne) (split out of
+`sst/` here after commit f4474e2).
+
 ## The sample result
 
 Once every event has its `onset_series.npz`:
