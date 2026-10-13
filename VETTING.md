@@ -539,3 +539,38 @@ Windows: pre -14..-2 h, post +6..+18 h from the whole-spot penumbra onset.
   threshold of Leka & Skumanich 1998). Noisy cells; to be quantified.
 - Open: a narrow (<~1-2 Mm) inflow at the edge would be smoothed by the
   1.8 Mm FLCT window -> SST (test 3); depth -> helioseismology.
+
+## R. MMF onset from tracked features, full sample (2026-10-13)
+
+`scripts/mmf_onset.py --all` (v1: strict outward MMFs) and `--v2` (every
+track born within 10 Mm, outward-minus-inward excess). Lag = MMF onset -
+whole-spot penumbra onset.
+
+| event   | v1 MMF lag (40 %) | v1 first app. - pen | v2 lag (40 %) | FLCT MMF lag | moat lag |
+|---------|-------------------|---------------------|---------------|--------------|----------|
+| AR11184 | +14               | +5                  | +10           | +10          | +7       |
+| AR11243 | +10               | -4                  | +8            | +6           | +5       |
+| AR11490 | +8                | +4                  | +8            | +9           | +3       |
+| AR11554 | +17               | +11                 | +12           | +12          | +12      |
+| AR11630 | +7                | +7                  | +9            | +7           | +14      |
+| AR11640 | +3                | -12                 | -6            | -6           | -13      |
+| median  | +9 (6/6 after)    | +4.5 (4/6 after)    | +8.5 (5/6)    | +8           | +6       |
+
+- v1: MMF onset after the penumbra onset in all 6 used events (sign test
+  p ~ 0.016, one-sided) and in all 6 other events with enough MMFs
+  (+7..+24 h; AR11610 flagged, 7 MMFs). Order: penumbra -> granular moat
+  (median +6 h) -> MMFs (+9 h); MMF - moat median +5 h. Tracked and FLCT
+  MMF onsets agree within a few hours (median +4 h, tracked later).
+- AR11640's negative values: a large spot whose penumbral area grows for
+  ~100 h to ~500 Mm^2, so its 40 % penumbra onset (41.5 h) is late while
+  the area visibly rises from ~30 h; first MMFs 29.5 h, burst 46-50 h.
+  AR11243's first appearance (-4 h): only ~2 h tracked before formation.
+- v2 confirms the onset (median +8.5 h) with 4-7x more tracks; v2 first
+  appearance is unreliable (fires on weak early excesses at the window
+  start, AR11490, AR13010).
+- AR13010 (case study): first outward opposite-polarity MMFs at 37.5 h =
+  2022-05-16 ~09:00 UT, inside the SST formation interval (08:30-13:00)
+  and 2 h after the HMI penumbra onset -- HMI confirms the SST finding of
+  MMFs starting with the forming filaments; 40 % onset 45.5 h.
+- Consistent with MMFs as continuations of penumbral field lines (Sainz
+  Dalda & Martinez Pillet 2005): they appear only once filaments exist.
