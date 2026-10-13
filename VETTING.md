@@ -502,3 +502,40 @@ our tracker followed the PRECEDING spot (negative, north, cycle 24;
 section O.4). Our AR11630 lag (+14 h) is a valid pore-to-penumbra
 measurement of that spot, but the literature interval belongs to the
 other one.
+
+## Q. Is the moat hidden before the penumbra? Tests 1 and 2 (2026-10-13)
+
+`scripts/radial_test.py` (v1 and `--tracks v2`), all events; 6 used.
+Windows: pre -14..-2 h, post +6..+18 h from the whole-spot penumbra onset.
+
+| quantity (used events, median [range], km/s) | pre                 | post               |
+|----------------------------------------------|---------------------|--------------------|
+| granular v_r 0-3 Mm from the edge            | +0.02 [-0.00,+0.07] | +0.12 [+0.01,+0.23] |
+| granular v_r 5-12 Mm                         | +0.01 [-0.09,+0.10] | +0.11 [+0.07,+0.25] |
+| magnetic drift 2-15 Mm, v1 (long-lived)      | -0.01 [-0.16,+0.05] | +0.17 [+0.02,+0.28] |
+|   without outward MMFs                       | -0.02               | +0.13              |
+| magnetic drift, v2 (every track, fitted)     | -0.01 [-0.14,+0.20] | +0.31 [+0.14,+0.41] |
+|   without v1-criteria MMFs                   | -0.02               | +0.26              |
+
+- No inflow ring at the edge with outflow farther out before the onset in
+  any used event (0/6): no hidden surface moat (Rempel 2015-type naked-spot
+  pattern) at HMI resolution. Post > pre: 5/6 at the edge (AR11630 equal),
+  6/6 at 5-12 Mm, 6/6 magnetic.
+- Positive pre-onset values sit where the moat is known to start early:
+  AR11640 (used, moat 13 h before penumbra; granular +0.07/+0.10, magnetic
+  v2 +0.20), AR11512 and AR11150 (excluded: "may already be on", no pore
+  phase), AR13010 (magnetic v2 +0.14).
+- Stack: the outflow appears across 0-10 Mm within a few hours of the
+  penumbra onset and then strengthens and widens slowly (outer edge
+  ~10 -> 13 Mm by +30 h). At hourly epochs with 3 h smoothing a front at
+  moat speeds (10 Mm in 3-6 h) cannot be told from a simultaneous
+  appearance -- so test 1 does NOT exclude an outflow below the
+  granulation that surfaces with the penumbra (correcting an earlier
+  two-event reading). Test 2 shows no early outward drag of magnetic
+  elements, which argues against a deep moat only as far as they feel it.
+- Candidate: in the ~6 h before the onset, magnetic features 2-6 Mm from
+  the edge drift inward (both magnetic panels of the stack) -- flux
+  converging onto the pore just before penumbra formation (cf. the flux
+  threshold of Leka & Skumanich 1998). Noisy cells; to be quantified.
+- Open: a narrow (<~1-2 Mm) inflow at the edge would be smoothed by the
+  1.8 Mm FLCT window -> SST (test 3); depth -> helioseismology.
